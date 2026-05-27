@@ -1,0 +1,6 @@
+class ArticlePojo {
+  title;
+  body;
+  
+
+}
