@@ -146,31 +146,6 @@ Open that URL in your browser  to access the application.
 - Track engagement
 
 
-
-## Screenshots 📸 
-
-
-#### Homepage 
-<img width="800" height="400"  style="border-radius: 10px;" alt="Screenshot 2026-05-03 181026" src="./src/readme/feed.png" />
-
-#### Profile Page
-<img width="800" height="400"  alt="Screenshot 2026-05-03 181134" src="./src/readme/profile.png" style="border-radius: 10px;" />
-
-#### Article Page
-<img width="800" height="400" style="border-radius: 10px;" alt="Screenshot 2026-05-03 181115" src="./src/readme/reader.png" />
-
-
-#### Comments 
-<img width="800" height="400" style="border-radius: 10px;" alt="Screenshot 2026-05-03 181343" src="./src/readme/comment.png" />
-
-
-
-----
-
-
-
-
-
 ## Project structure 📂
 
 
