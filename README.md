@@ -534,22 +534,6 @@ erDiagram
 ## Future Improvements 🏗️
 
 
-- Direct messaging system
-- Personalized recommendation feed
-- Real-time notifications
-- User moderation tools
-- Saved/bookmarked articles
-
-
-
 ---
-
-
-
-## Contributing 🤝
-
-Want to help?
-- Run `npm run lint` before opening a PR ✅
-- Keep PRs small and focused (one feature/fix per PR) 🎯
 
 
