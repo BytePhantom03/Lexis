@@ -1,7 +1,8 @@
 // src/components/tiptap/AIPalette.jsx
-// Floating AI Command Palette — appears when user types /ai in the editor.
+// Floating AI Command Palette and Inline Diff UI
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Sparkles,
   Shrink,
@@ -17,6 +18,7 @@ import {
   CornerDownLeft,
 } from "lucide-react";
 import { streamAIResponse } from "./aiService";
+import { supabase } from "../../config/supabaseClient";
 
 const COMMANDS = [
   {
@@ -24,7 +26,7 @@ const COMMANDS = [
     label: "Autocomplete",
     description: "Continue writing from here",
     icon: Sparkles,
-    shortcutIcon: CornerDownLeft, // Enter key symbol
+    shortcutIcon: CornerDownLeft,
   },
   {
     id: "expand",
@@ -45,23 +47,11 @@ const COMMANDS = [
     label: "Rewrite Tone",
     description: "Change the voice",
     icon: RefreshCcw,
-    shortcutIcon: Play, // Triangle symbol for submenu
+    shortcutIcon: Play,
     submenu: [
-      {
-        id: "rewrite_professional",
-        label: "Professional",
-        icon: Briefcase,
-      },
-      {
-        id: "rewrite_casual",
-        label: "Casual",
-        icon: Coffee,
-      },
-      {
-        id: "rewrite_witty",
-        label: "Witty",
-        icon: SmilePlus,
-      },
+      { id: "rewrite_professional", label: "Professional", icon: Briefcase },
+      { id: "rewrite_casual", label: "Casual", icon: Coffee },
+      { id: "rewrite_witty", label: "Witty", icon: SmilePlus },
     ],
   },
 ];
@@ -70,6 +60,7 @@ export default function AIPalette({
   isOpen,
   coords,
   paragraphText,
+  contextWindow,
   editor,
   onClose,
   insertPos,
@@ -86,7 +77,6 @@ export default function AIPalette({
   const paletteRef = useRef(null);
   const abortRef = useRef(null);
 
-  // Reset state when palette opens
   useEffect(() => {
     if (isOpen) {
       setSelectedIndex(0);
@@ -101,18 +91,6 @@ export default function AIPalette({
     }
   }, [isOpen]);
 
-  // Close on click outside
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e) => {
-      if (paletteRef.current && !paletteRef.current.contains(e.target)) {
-        handleClose();
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
-
   const handleClose = useCallback(() => {
     if (abortRef.current) {
       abortRef.current.abort();
@@ -121,18 +99,14 @@ export default function AIPalette({
     onClose();
   }, [onClose]);
 
-  // Keyboard navigation
   useEffect(() => {
     if (!isOpen || isStreaming || showDiff) return;
 
     const handleKeyDown = (e) => {
-      const items = showSubmenu
-        ? COMMANDS[selectedIndex].submenu
-        : COMMANDS;
+      const items = showSubmenu ? COMMANDS[selectedIndex].submenu : COMMANDS;
       const currentIndex = showSubmenu ? subIndex : selectedIndex;
       const setIndex = showSubmenu ? setSubIndex : setSelectedIndex;
 
-      // Quick shortcuts
       if (!showSubmenu) {
         if (e.key.toLowerCase() === "e") {
           e.preventDefault();
@@ -194,6 +168,25 @@ export default function AIPalette({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, isStreaming, showDiff, showSubmenu, selectedIndex, subIndex, handleClose]);
 
+  const logAIUsage = async (status) => {
+    try {
+      // 1. Log usage (mocking token count using text length as proxy)
+      await supabase.from("ai_usage_logs").insert({
+        command: activeCommand,
+        status: status,
+        token_estimate: rewrittenText.length,
+        created_at: new Date().toISOString(),
+      });
+
+      // Note: ai_used and ai_commands_used would typically be updated on the ArticleTable here.
+      // This requires the current article ID to be passed as a prop.
+      // Example:
+      // await supabase.from('ArticleTable').update({ ai_used: true }).eq('id', currentArticleId);
+    } catch (e) {
+      console.error("Failed to log AI usage", e);
+    }
+  };
+
   const executeCommand = async (commandId) => {
     if (!paragraphText.trim()) {
       handleClose();
@@ -216,23 +209,22 @@ export default function AIPalette({
       let fullText = "";
 
       if (!isRewrite) {
-        // For autocomplete/expand — stream directly into editor
         await streamAIResponse(
           commandId,
           paragraphText,
+          contextWindow,
           (chunk) => {
             fullText += chunk;
             setStreamedText(fullText);
-            // Insert at cursor position with addToHistory so Ctrl+Z works nicely
             editor.chain().focus().insertContent(chunk).run();
           },
           abortController.signal
         );
       } else {
-        // For rewrites and shorten — collect the full text first, then show diff
         await streamAIResponse(
           commandId,
           paragraphText,
+          contextWindow,
           (chunk) => {
             fullText += chunk;
             setStreamedText(fullText);
@@ -251,11 +243,8 @@ export default function AIPalette({
     }
   };
 
-  const handleAcceptRewrite = () => {
-    // Replace the current paragraph content with the rewritten text
+  const handleAcceptRewrite = async () => {
     const { state } = editor;
-
-    // Find the paragraph node boundaries
     const $pos = state.doc.resolve(insertPos);
     const start = $pos.start();
     const end = $pos.end();
@@ -267,49 +256,47 @@ export default function AIPalette({
       .insertContentAt(start, rewrittenText)
       .run();
 
+    await logAIUsage("accepted");
     handleClose();
   };
 
-  const handleRejectRewrite = () => {
+  const handleRejectRewrite = async () => {
+    await logAIUsage("rejected");
     handleClose();
   };
 
   if (!isOpen) return null;
 
-  // Calculate position — ensure palette stays within viewport
-  const top = (coords?.bottom || 0) + 8;
-  const left = coords?.left || 0;
+  // Use the DOM node bounding rect for overlay positioning, fallback to cursor coords
+  const overlayStyle = coords?.width 
+    ? { top: `${coords.top - 10}px`, left: `${coords.left - 10}px`, width: `${coords.width + 20}px` } 
+    : { top: `${(coords?.bottom || 0) + 8}px`, left: `${coords?.left || 0}px` };
 
-  // Diff view for rewrites
+  // 1. Diff View (Pending State)
   if (showDiff && rewrittenText) {
-    return (
+    return createPortal(
       <div
-        ref={paletteRef}
-        className="fixed z-[9999] w-[460px] max-w-[90vw] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
-        style={{ top: `${top}px`, left: `${left}px` }}
+        className="fixed z-[9999] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
+        style={overlayStyle}
       >
         <div className="flex items-center gap-2 px-4 py-3 border-b border-[#2d2e3d] bg-[#15151c]">
           <Sparkles size={16} className="text-[#9d7cf7]" />
           <span className="text-xs font-semibold text-gray-300 tracking-wider">
-            AI REWRITE
+            AI REWRITE — Review Changes
           </span>
         </div>
 
-        <div className="p-4 space-y-3 max-h-[300px] overflow-y-auto">
-          <div className="rounded-xl bg-[#2a1b1e] p-4 border border-[#3d2328]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#e57b85] mb-2 block">
-              Original
-            </span>
-            <p className="text-sm text-[#b39ba0] line-through leading-relaxed">
+        <div className="flex flex-col gap-2 p-3">
+          {/* Dimmed original with strikethrough */}
+          <div className="rounded-xl bg-[#1a1b23] p-4 border border-[#2d2e3d]/50 opacity-60">
+            <p className="text-sm text-[#7a7a8f] line-through leading-relaxed">
               {originalText}
             </p>
           </div>
 
-          <div className="rounded-xl bg-[#1b2a24] p-4 border border-[#233d31]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7be5b5] mb-2 block">
-              Rewritten
-            </span>
-            <p className="text-sm text-[#e0f2e9] leading-relaxed">
+          {/* Highlighted new version */}
+          <div className="rounded-xl bg-[#28243d] p-4 border border-[#483d8b] shadow-inner">
+            <p className="text-sm text-[#e2d9ff] leading-relaxed">
               {rewrittenText}
             </p>
           </div>
@@ -318,10 +305,10 @@ export default function AIPalette({
         <div className="flex items-center gap-2 p-3 border-t border-[#2d2e3d] bg-[#15151c]">
           <button
             onClick={handleAcceptRewrite}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-[#2f8a5a] hover:bg-[#3ba36d] rounded-xl transition-colors cursor-pointer"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-[#6b4cde] hover:bg-[#7a5ce0] rounded-xl transition-colors cursor-pointer"
           >
             <Check size={16} />
-            Accept Changes
+            Accept
           </button>
           <button
             onClick={handleRejectRewrite}
@@ -331,61 +318,62 @@ export default function AIPalette({
             Discard
           </button>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  // Streaming indicator
-  if (isStreaming) {
-    return (
+  // 2. Inline Shimmer (Streaming State for Rewrites)
+  if (isStreaming && activeCommand.startsWith("rewrite")) {
+    return createPortal(
       <div
-        ref={paletteRef}
+        className="fixed z-[9999] rounded-lg bg-[#1a1b23]/90 backdrop-blur-sm border border-[#3b3461] p-4 overflow-hidden"
+        style={{ ...overlayStyle, height: coords?.height ? `${coords.height + 20}px` : '100px' }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#b395ff]/10 to-transparent animate-[shimmer_1.5s_infinite] -skew-x-12" style={{ backgroundSize: '200% 100%' }} />
+        <div className="relative z-10 flex items-center gap-3">
+          <Loader2 size={16} className="text-[#9d7cf7] animate-spin" />
+          <span className="text-sm text-[#b395ff] font-medium tracking-wide">Rewriting paragraph...</span>
+        </div>
+        <p className="relative z-10 text-sm text-[#7a7a8f] mt-2 opacity-50 blur-[2px] select-none">
+          {originalText.slice(0, 100)}...
+        </p>
+      </div>,
+      document.body
+    );
+  }
+
+  // 3. Floating Loader (Streaming State for Autocomplete/Expand)
+  if (isStreaming) {
+    return createPortal(
+      <div
         className="fixed z-[9999] w-[300px] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
-        style={{ top: `${top}px`, left: `${left}px` }}
+        style={{ top: `${(coords?.bottom || 0) + 8}px`, left: `${coords?.left || 0}px` }}
       >
         <div className="flex items-center gap-4 px-5 py-5">
-          <Loader2
-            size={20}
-            className="text-[#9d7cf7] animate-spin"
-          />
+          <Loader2 size={20} className="text-[#9d7cf7] animate-spin" />
           <div>
-            <p className="text-sm font-medium text-gray-200">
-              AI is writing...
-            </p>
-            <p className="text-xs text-gray-500 mt-0.5 capitalize">
-              {activeCommand.replace("_", " ")}
-            </p>
+            <p className="text-sm font-medium text-gray-200">AI is writing...</p>
+            <p className="text-xs text-gray-500 mt-0.5 capitalize">{activeCommand.replace("_", " ")}</p>
           </div>
-          <button
-            onClick={handleClose}
-            className="ml-auto p-1.5 text-gray-500 hover:text-gray-300 rounded-full hover:bg-[#2d2e3d] transition-colors cursor-pointer"
-          >
-            <X size={14} />
-          </button>
         </div>
-        <div className="h-0.5 bg-[#2d2e3d]">
-          <div className="h-full bg-gradient-to-r from-[#7a5ce0] to-[#b395ff] animate-pulse rounded-full w-2/3" />
-        </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  // Command palette
-  return (
+  // 4. Command Palette (Initial State)
+  return createPortal(
     <div
       ref={paletteRef}
       className="fixed z-[9999] w-[320px] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
-      style={{ top: `${top}px`, left: `${left}px` }}
+      style={{ top: `${(coords?.bottom || 0) + 8}px`, left: `${coords?.left || 0}px` }}
     >
-      {/* Header */}
       <div className="flex items-center gap-2 px-4 py-3">
         <Sparkles size={14} className="text-[#5b5b6b]" />
-        <span className="text-[11px] font-semibold text-[#5b5b6b] tracking-widest uppercase">
-          AI Commands
-        </span>
+        <span className="text-[11px] font-semibold text-[#5b5b6b] tracking-widest uppercase">AI Commands</span>
       </div>
 
-      {/* Commands list */}
       <div className="px-2 pb-2">
         {COMMANDS.map((cmd, index) => {
           const Icon = cmd.icon;
@@ -409,9 +397,7 @@ export default function AIPalette({
                   if (!cmd.submenu) setShowSubmenu(false);
                 }}
                 className={`w-full flex items-center gap-3.5 px-3 py-3 text-left transition-colors cursor-pointer rounded-xl ${
-                  isSelected
-                    ? "bg-[#28243d]"
-                    : "hover:bg-[#22222d]"
+                  isSelected ? "bg-[#28243d]" : "hover:bg-[#22222d]"
                 }`}
               >
                 <div className={`p-2 rounded-lg ${isSelected ? 'bg-[#3b3461] text-[#b395ff]' : 'bg-[#252630] text-[#717185]'}`}>
@@ -419,16 +405,10 @@ export default function AIPalette({
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <p
-                    className={`text-sm font-semibold tracking-wide ${
-                      isSelected ? "text-white" : "text-gray-200"
-                    }`}
-                  >
+                  <p className={`text-sm font-semibold tracking-wide ${isSelected ? "text-white" : "text-gray-200"}`}>
                     {cmd.label}
                   </p>
-                  <p className="text-[12px] text-[#7a7a8f] mt-0.5 truncate">
-                    {cmd.description}
-                  </p>
+                  <p className="text-[12px] text-[#7a7a8f] mt-0.5 truncate">{cmd.description}</p>
                 </div>
 
                 <div className={`flex items-center justify-center w-5 h-5 rounded ${isSelected ? 'bg-[#1e1a30] text-[#7a7a8f]' : 'bg-[#1e1e26] text-[#5b5b6b]'}`}>
@@ -436,48 +416,33 @@ export default function AIPalette({
                 </div>
               </button>
 
-              {/* Submenu */}
-              {cmd.submenu &&
-                showSubmenu &&
-                selectedIndex === index && (
-                  <div className="absolute left-full top-0 ml-2 w-[180px] bg-[#1a1b23] border border-[#2d2e3d] rounded-xl shadow-xl p-1.5 animate-scale-in z-10">
-                    {cmd.submenu.map((sub, sIdx) => {
-                      const SubIcon = sub.icon;
-                      const isSubSelected = subIndex === sIdx;
+              {cmd.submenu && showSubmenu && selectedIndex === index && (
+                <div className="absolute left-full top-0 ml-2 w-[180px] bg-[#1a1b23] border border-[#2d2e3d] rounded-xl shadow-xl p-1.5 animate-scale-in z-10">
+                  {cmd.submenu.map((sub, sIdx) => {
+                    const SubIcon = sub.icon;
+                    const isSubSelected = subIndex === sIdx;
 
-                      return (
-                        <button
-                          key={sub.id}
-                          onClick={() => executeCommand(sub.id)}
-                          onMouseEnter={() => setSubIndex(sIdx)}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors cursor-pointer rounded-lg ${
-                            isSubSelected
-                              ? "bg-[#28243d] text-white"
-                              : "hover:bg-[#22222d] text-gray-300"
-                          }`}
-                        >
-                          <SubIcon
-                            size={16}
-                            className={
-                              isSubSelected
-                                ? "text-[#b395ff]"
-                                : "text-[#717185]"
-                            }
-                          />
-                          <span className="text-sm font-medium tracking-wide">
-                            {sub.label}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                    return (
+                      <button
+                        key={sub.id}
+                        onClick={() => executeCommand(sub.id)}
+                        onMouseEnter={() => setSubIndex(sIdx)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors cursor-pointer rounded-lg ${
+                          isSubSelected ? "bg-[#28243d] text-white" : "hover:bg-[#22222d] text-gray-300"
+                        }`}
+                      >
+                        <SubIcon size={16} className={isSubSelected ? "text-[#b395ff]" : "text-[#717185]"} />
+                        <span className="text-sm font-medium tracking-wide">{sub.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
-      {/* Footer hint */}
       <div className="px-4 py-2.5 border-t border-[#2d2e3d] bg-[#15151c]">
         <div className="flex items-center justify-between text-[11px] text-[#5b5b6b] font-mono">
           <span className="flex items-center gap-1"><span className="text-[#7a7a8f]">↑↓</span> navigate</span>
@@ -485,6 +450,7 @@ export default function AIPalette({
           <span className="flex items-center gap-1"><span className="text-[#7a7a8f]">esc</span> close</span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

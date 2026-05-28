@@ -11,23 +11,24 @@ const PROMPTS = {
     `You are a writing assistant. Take this rough idea or bullet point and build it into a full, detailed, and rich paragraph. Maintain the author's voice. Do NOT add any preamble or explanation.\n\nSeed text:\n"${text}"`,
   shorten: (text) =>
     `You are a writing assistant. Strip this text down to its core idea in roughly half the words. Remove filler but keep the most important details and original tone. Do NOT add any preamble.\n\nOriginal text:\n"${text}"`,
-  rewrite_professional: (text) =>
-    `Rewrite the following text in a professional, formal, and polished tone. Do NOT add any preamble or explanation. Only output the rewritten text.\n\nText: "${text}"`,
-  rewrite_casual: (text) =>
-    `Rewrite the following text in a casual, friendly, and conversational tone. Do NOT add any preamble or explanation. Only output the rewritten text.\n\nText: "${text}"`,
-  rewrite_witty: (text) =>
-    `Rewrite the following text with dry wit, humor, and personality. Do NOT add any preamble or explanation. Only output the rewritten text.\n\nText: "${text}"`,
+  rewrite_professional: (text, context) =>
+    `You are an expert editor. Rewrite the following paragraph. Maintain all factual content, increase sentence formality, use precise vocabulary, eliminate contractions, and target someone reading in a business or academic context. Do NOT add any preamble. Only output the rewritten paragraph.\n\nContext:\n${context}\n\nParagraph to rewrite:\n"${text}"`,
+  rewrite_casual: (text, context) =>
+    `You are an expert editor. Rewrite the following paragraph to read like the author is talking to a smart friend. Use contractions, make sentences shorter and punchier, make the first person feel natural. A single sentence can stand alone for emphasis. Keep conversational warmth without losing the core argument. Do NOT add any preamble. Only output the rewritten paragraph.\n\nContext:\n${context}\n\nParagraph to rewrite:\n"${text}"`,
+  rewrite_witty: (text, context) =>
+    `You are an expert editor. Rewrite the following paragraph. Keep the core idea but introduce one moment of dry observation, unexpected word choice, or ironic framing. This is NOT comedy writing or stand-up—just add a texture of personality that makes someone pause and re-read. Do NOT add any preamble. Only output the rewritten paragraph.\n\nContext:\n${context}\n\nParagraph to rewrite:\n"${text}"`,
 };
 
 /**
  * Calls the Groq API directly and streams the response.
  * @param {string} command - One of: autocomplete, expand, shorten, rewrite_professional, rewrite_casual, rewrite_witty
  * @param {string} text - The paragraph text to process
+ * @param {string} contextWindow - The surrounding context text
  * @param {(chunk: string) => void} onChunk - Callback fired for each streamed text chunk
  * @param {AbortSignal} [signal] - Optional abort signal to cancel the stream
  * @returns {Promise<string>} - The full generated text
  */
-export async function streamAIResponse(command, text, onChunk, signal) {
+export async function streamAIResponse(command, text, contextWindow, onChunk, signal) {
   const promptFn = PROMPTS[command];
   if (!promptFn) {
     throw new Error(`Unknown AI command: ${command}`);
@@ -45,7 +46,7 @@ export async function streamAIResponse(command, text, onChunk, signal) {
     },
     body: JSON.stringify({
       model: "llama-3.3-70b-versatile",
-      messages: [{ role: "user", content: promptFn(text) }],
+      messages: [{ role: "user", content: promptFn(text, contextWindow) }],
       stream: true,
       max_tokens: 500,
       temperature: 0.7,

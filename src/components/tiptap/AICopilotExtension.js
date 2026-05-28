@@ -48,25 +48,39 @@ const AICopilotExtension = Extension.create({
                 tr.delete(safeFrom, Math.min(deleteTo, tr.doc.content.size));
                 view.dispatch(tr);
 
-                // Get cursor coordinates for positioning the palette
-                const coords = view.coordsAtPos(safeFrom);
-
-                // Get the current paragraph and some previous context
+                // Get the exact paragraph node being edited
                 const resolvedPos = view.state.doc.resolve(
                   Math.min(safeFrom, view.state.doc.content.size)
                 );
+                const paragraphText = resolvedPos.parent.textContent || "";
                 
-                // Get up to 500 characters of preceding text across paragraphs for context
-                const contextStart = Math.max(0, safeFrom - 500);
-                const paragraphText = view.state.doc.textBetween(contextStart, safeFrom, "\n", "\ufffc");
+                // Build a context window of text before and after the paragraph
+                const doc = view.state.doc;
+                const parentPos = resolvedPos.before(resolvedPos.depth);
+                const parentEnd = resolvedPos.after(resolvedPos.depth);
+                
+                // Get the DOM node of the paragraph to overlay the UI exactly on top of it
+                let nodeRect = { top: coords.top, left: coords.left, bottom: coords.bottom, width: 400 };
+                try {
+                  const nodeDOM = view.nodeDOM(parentPos);
+                  if (nodeDOM && nodeDOM.getBoundingClientRect) {
+                    nodeRect = nodeDOM.getBoundingClientRect();
+                  }
+                } catch (e) {
+                  // Fallback to cursor coords if DOM lookup fails
+                }
+                
+                const prevNodeStart = Math.max(0, parentPos - 500);
+                const nextNodeEnd = Math.min(doc.content.size, parentEnd + 500);
+                
+                const contextBefore = doc.textBetween(prevNodeStart, parentPos, " ", "\ufffc");
+                const contextAfter = doc.textBetween(parentEnd, nextNodeEnd, " ", "\ufffc");
+                const contextWindow = `Previous text: ${contextBefore}\n\nFollowing text: ${contextAfter}`;
 
                 extension.options.onActivate({
-                  coords: {
-                    top: coords.top,
-                    left: coords.left,
-                    bottom: coords.bottom,
-                  },
+                  coords: nodeRect,
                   paragraphText,
+                  contextWindow,
                   from: safeFrom,
                 });
               }, 0);

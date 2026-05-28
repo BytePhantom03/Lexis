@@ -11,6 +11,7 @@ const Tiptap = ({ setHtml }) => {
 	const [aiPaletteOpen, setAiPaletteOpen] = useState(false);
 	const [aiCoords, setAiCoords] = useState(null);
 	const [aiParagraphText, setAiParagraphText] = useState("");
+	const [aiContextWindow, setAiContextWindow] = useState("");
 	const [aiInsertPos, setAiInsertPos] = useState(0);
 
 	const editor = useEditor({
@@ -18,9 +19,10 @@ const Tiptap = ({ setHtml }) => {
 			StarterKit,
 			Image,
 			AICopilotExtension.configure({
-				onActivate: ({ coords, paragraphText, from }) => {
+				onActivate: ({ coords, paragraphText, contextWindow, from }) => {
 					setAiCoords(coords);
 					setAiParagraphText(paragraphText);
+					setAiContextWindow(contextWindow);
 					setAiInsertPos(from);
 					setAiPaletteOpen(true);
 				},
@@ -70,6 +72,7 @@ const Tiptap = ({ setHtml }) => {
 				isOpen={aiPaletteOpen}
 				coords={aiCoords}
 				paragraphText={aiParagraphText}
+				contextWindow={aiContextWindow}
 				editor={editor}
 				insertPos={aiInsertPos}
 				onClose={() => setAiPaletteOpen(false)}
