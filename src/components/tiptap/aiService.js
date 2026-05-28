@@ -19,6 +19,20 @@ const PROMPTS = {
     `You are an expert editor. Rewrite the following paragraph. Keep the core idea but introduce one moment of dry observation, unexpected word choice, or ironic framing. This is NOT comedy writing or stand-up—just add a texture of personality that makes someone pause and re-read. Do NOT add any preamble. Only output the rewritten paragraph.\n\nContext:\n${context}\n\nParagraph to rewrite:\n"${text}"`,
 };
 
+export class MissingKeyError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "MissingKeyError";
+  }
+}
+
+export class InvalidKeyError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "InvalidKeyError";
+  }
+}
+
 /**
  * Calls the Groq API directly and streams the response.
  * @param {string} command - One of: autocomplete, expand, shorten, rewrite_professional, rewrite_casual, rewrite_witty
@@ -34,14 +48,17 @@ export async function streamAIResponse(command, text, contextWindow, onChunk, si
     throw new Error(`Unknown AI command: ${command}`);
   }
 
-  if (!GROQ_API_KEY) {
-    throw new Error("VITE_GROQ_API_KEY is not set in your .env file");
+  // Fallback to env key if localStorage is empty (for backwards compatibility/testing)
+  const apiKey = localStorage.getItem("lexis_groq_api_key") || import.meta.env.VITE_GROQ_API_KEY;
+
+  if (!apiKey) {
+    throw new MissingKeyError("Please add your Groq API key in Settings to use the AI Copilot.");
   }
 
   const response = await fetch(GROQ_API_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${GROQ_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -55,6 +72,9 @@ export async function streamAIResponse(command, text, contextWindow, onChunk, si
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new InvalidKeyError("Your Groq API key is invalid or expired. Please update it in Settings.");
+    }
     const errorText = await response.text().catch(() => "");
     throw new Error(`Groq API error (${response.status}): ${errorText}`);
   }

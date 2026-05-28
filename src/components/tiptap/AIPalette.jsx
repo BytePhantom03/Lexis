@@ -16,6 +16,7 @@ import {
   X,
   Play,
   CornerDownLeft,
+  KeyRound,
 } from "lucide-react";
 import { streamAIResponse } from "./aiService";
 import supabase from "../../config/supabaseClient";
@@ -74,6 +75,7 @@ export default function AIPalette({
   const [originalText, setOriginalText] = useState("");
   const [rewrittenText, setRewrittenText] = useState("");
   const [activeCommand, setActiveCommand] = useState("");
+  const [apiError, setApiError] = useState(null);
   const paletteRef = useRef(null);
   const abortRef = useRef(null);
 
@@ -88,6 +90,7 @@ export default function AIPalette({
       setOriginalText("");
       setRewrittenText("");
       setActiveCommand("");
+      setApiError(null);
     }
   }, [isOpen]);
 
@@ -100,7 +103,7 @@ export default function AIPalette({
   }, [onClose]);
 
   useEffect(() => {
-    if (!isOpen || isStreaming || showDiff) return;
+    if (!isOpen || isStreaming || showDiff || apiError) return;
 
     const handleKeyDown = (e) => {
       const items = showSubmenu ? COMMANDS[selectedIndex].submenu : COMMANDS;
@@ -166,7 +169,7 @@ export default function AIPalette({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, isStreaming, showDiff, showSubmenu, selectedIndex, subIndex, handleClose]);
+  }, [isOpen, isStreaming, showDiff, showSubmenu, selectedIndex, subIndex, handleClose, apiError]);
 
   const logAIUsage = async (status) => {
     try {
@@ -197,6 +200,7 @@ export default function AIPalette({
     setActiveCommand(commandId);
     setIsStreaming(true);
     setStreamedText("");
+    setApiError(null);
 
     if (isRewrite) {
       setOriginalText(paragraphText);
@@ -238,7 +242,9 @@ export default function AIPalette({
         setShowDiff(true);
       }
     } catch (error) {
-      if (error.name !== "AbortError") {
+      if (error.name === "MissingKeyError" || error.name === "InvalidKeyError") {
+        setApiError(error.message);
+      } else if (error.name !== "AbortError") {
         console.error("AI Copilot error:", error);
       }
     } finally {
@@ -275,7 +281,47 @@ export default function AIPalette({
     ? { top: `${coords.top - 10}px`, left: `${coords.left - 10}px`, width: `${coords.width + 20}px` } 
     : { top: `${(coords?.bottom || 0) + 8}px`, left: `${coords?.left || 0}px` };
 
-  // 1. Diff View (Pending State)
+  // 1. API Error View
+  if (apiError) {
+    return createPortal(
+      <div
+        className="fixed z-[9999] w-[320px] bg-[#1a1b23] border border-red-500/30 rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
+        style={{ top: `${(coords?.bottom || 0) + 8}px`, left: `${coords?.left || 0}px` }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-red-500/20 bg-red-500/10">
+          <KeyRound size={16} className="text-red-400" />
+          <span className="text-sm font-semibold text-red-200">API Key Required</span>
+        </div>
+        <div className="p-4">
+          <p className="text-sm text-gray-300 mb-4">{apiError}</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                handleClose();
+                window.location.href = "/control";
+              }}
+              className="flex-1 px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors cursor-pointer"
+            >
+              Go to Settings
+            </button>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-3 py-2 text-sm font-medium text-gray-300 bg-[#2d2e3d] hover:bg-[#3d3e52] rounded-lg transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // 2. Diff View (Pending State)
   if (showDiff && rewrittenText) {
     return createPortal(
       <div
