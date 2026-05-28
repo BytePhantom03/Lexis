@@ -193,7 +193,7 @@ export default function AIPalette({
       return;
     }
 
-    const isRewrite = commandId.startsWith("rewrite_") || commandId === "shorten";
+    const isRewrite = commandId.startsWith("rewrite_");
     setActiveCommand(commandId);
     setIsStreaming(true);
     setStreamedText("");
@@ -270,44 +270,54 @@ export default function AIPalette({
 
   if (!isOpen) return null;
 
+  const getSmartPosition = (estimatedHeight) => {
+    if (!coords) return { top: 0, left: 0 };
+    const spaceBelow = window.innerHeight - coords.bottom;
+    // If not enough space below, open ABOVE the text line
+    const top = spaceBelow < estimatedHeight + 20 ? Math.max(8, coords.top - estimatedHeight - 8) : coords.bottom + 8;
+    // Ensure it doesn't go off the right screen edge
+    const left = Math.min(coords.left, window.innerWidth - 340);
+    return { top: `${top}px`, left: `${Math.max(8, left)}px` };
+  };
+
   // Use the DOM node bounding rect for overlay positioning, fallback to cursor coords
   const overlayStyle = coords?.width 
     ? { top: `${coords.top - 10}px`, left: `${coords.left - 10}px`, width: `${coords.width + 20}px` } 
-    : { top: `${(coords?.bottom || 0) + 8}px`, left: `${coords?.left || 0}px` };
+    : getSmartPosition(100);
 
   // 1. Diff View (Pending State)
   if (showDiff && rewrittenText) {
     return createPortal(
       <div
-        className="fixed z-[9999] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
+        className="fixed z-[9999] bg-white dark:bg-[#1a1b23] border border-gray-200 dark:border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
         style={overlayStyle}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#2d2e3d] bg-[#15151c]">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-[#2d2e3d] bg-gray-50 dark:bg-[#15151c]">
           <Sparkles size={16} className="text-[#9d7cf7]" />
-          <span className="text-xs font-semibold text-gray-300 tracking-wider">
+          <span className="text-xs font-semibold text-gray-500 dark:text-gray-300 tracking-wider">
             AI REWRITE — Review Changes
           </span>
         </div>
 
-        <div className="flex flex-col gap-2 p-3">
-          {/* Dimmed original with strikethrough */}
-          <div className="rounded-xl bg-[#1a1b23] p-4 border border-[#2d2e3d]/50 opacity-60">
-            <p className="text-sm text-[#7a7a8f] line-through leading-relaxed">
+        <div className="grid grid-cols-2 gap-4 p-4">
+          {/* Left panel - Original */}
+          <div className="rounded-xl bg-gray-50 dark:bg-[#1a1b23] p-4 border border-gray-200 dark:border-[#2d2e3d]/50 opacity-60">
+            <p className="text-sm text-gray-400 dark:text-[#7a7a8f] line-through leading-relaxed">
               {originalText}
             </p>
           </div>
 
-          {/* Highlighted new version */}
-          <div className="rounded-xl bg-[#28243d] p-4 border border-[#483d8b] shadow-inner">
-            <p className="text-sm text-[#e2d9ff] leading-relaxed">
+          {/* Right panel - Rewrite */}
+          <div className="rounded-xl bg-purple-50/50 dark:bg-[#28243d] p-4 border border-purple-100 dark:border-[#483d8b] shadow-inner">
+            <p className="text-sm text-gray-800 dark:text-[#e2d9ff] leading-relaxed">
               {rewrittenText}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 p-3 border-t border-[#2d2e3d] bg-[#15151c]">
+        <div className="flex items-center gap-2 p-3 border-t border-gray-100 dark:border-[#2d2e3d] bg-gray-50 dark:bg-[#15151c]">
           <button
             type="button"
             onClick={handleAcceptRewrite}
@@ -319,7 +329,7 @@ export default function AIPalette({
           <button
             type="button"
             onClick={handleRejectRewrite}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-gray-300 bg-[#2d2e3d] hover:bg-[#3d3e52] rounded-xl transition-colors cursor-pointer"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-[#2d2e3d] hover:bg-gray-300 dark:hover:bg-[#3d3e52] rounded-xl transition-colors cursor-pointer"
           >
             <X size={16} />
             Discard
@@ -334,19 +344,21 @@ export default function AIPalette({
   if (isStreaming && activeCommand.startsWith("rewrite")) {
     return createPortal(
       <div
-        className="fixed z-[9999] rounded-lg bg-[#1a1b23]/90 backdrop-blur-sm border border-[#3b3461] p-4 overflow-hidden"
-        style={{ ...overlayStyle, height: coords?.height ? `${coords.height + 20}px` : '100px' }}
+        className="fixed z-[9999] rounded-lg bg-white dark:bg-[#1a1b23] border border-purple-200 dark:border-[#3b3461] p-4 overflow-hidden shadow-sm"
+        style={{ ...overlayStyle, height: 'auto', minHeight: coords?.height ? `${coords.height + 20}px` : '100px' }}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#b395ff]/10 to-transparent animate-[shimmer_1.5s_infinite] -skew-x-12" style={{ backgroundSize: '200% 100%' }} />
-        <div className="relative z-10 flex items-center gap-3">
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-100/50 dark:via-[#b395ff]/10 to-transparent animate-[shimmer_1.5s_infinite] -skew-x-12" style={{ backgroundSize: '200% 100%' }} />
+        <div className="relative z-10 flex items-center gap-3 mb-3">
           <Loader2 size={16} className="text-[#9d7cf7] animate-spin" />
-          <span className="text-sm text-[#b395ff] font-medium tracking-wide">Rewriting paragraph...</span>
+          <span className="text-sm text-purple-600 dark:text-[#b395ff] font-medium tracking-wide">Rewriting paragraph...</span>
         </div>
-        <p className="relative z-10 text-sm text-[#7a7a8f] mt-2 opacity-50 blur-[2px] select-none">
-          {originalText.slice(0, 100)}...
-        </p>
+        <div className="relative z-10 max-h-[200px] overflow-y-auto">
+          <p className="text-sm text-gray-800 dark:text-[#e2d9ff] leading-relaxed">
+            {streamedText || <span className="text-gray-400 dark:text-[#7a7a8f] opacity-50">Thinking...</span>}
+          </p>
+        </div>
       </div>,
       document.body
     );
@@ -357,7 +369,7 @@ export default function AIPalette({
     return createPortal(
       <div
         className="fixed z-[9999] w-[300px] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
-        style={{ top: `${(coords?.bottom || 0) + 8}px`, left: `${coords?.left || 0}px` }}
+        style={getSmartPosition(80)}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
@@ -385,7 +397,7 @@ export default function AIPalette({
     <div
       ref={paletteRef}
       className="fixed z-[9999] w-[320px] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
-      style={{ top: `${(coords?.bottom || 0) + 8}px`, left: `${coords?.left || 0}px` }}
+      style={getSmartPosition(300)}
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
