@@ -10,7 +10,7 @@ With Lexis you can:
 
 <b> 🌐 Live Demo : </b>
 
-[Lexis Live](lexis-steel.vercel.app/home)
+[Lexis Live](https://lexis-steel.vercel.app/home)
 
 ---
 
