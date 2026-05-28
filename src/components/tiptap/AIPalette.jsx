@@ -236,7 +236,6 @@ export default function AIPalette({
   const handleAcceptRewrite = () => {
     // Replace the current paragraph content with the rewritten text
     const { state } = editor;
-    const { from, to } = state.selection;
 
     // Find the paragraph node boundaries
     const $pos = state.doc.resolve(insertPos);
@@ -246,10 +245,8 @@ export default function AIPalette({
     editor
       .chain()
       .focus()
-      .command(({ tr }) => {
-        tr.replaceWith(start, end, state.schema.text(rewrittenText));
-        return true;
-      })
+      .deleteRange({ from: start, to: end })
+      .insertContentAt(start, rewrittenText)
       .run();
 
     handleClose();
