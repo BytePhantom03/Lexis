@@ -48,34 +48,39 @@ const AICopilotExtension = Extension.create({
                 tr.delete(safeFrom, Math.min(deleteTo, tr.doc.content.size));
                 view.dispatch(tr);
 
-                // Get the exact paragraph node being edited
-                const resolvedPos = view.state.doc.resolve(
-                  Math.min(safeFrom, view.state.doc.content.size)
-                );
-                const paragraphText = resolvedPos.parent.textContent || "";
+                // Prepare variables for payload
+                let paragraphText = "";
+                let contextWindow = "";
+                let nodeRect = { top: 0, left: 0, bottom: 0, width: 400, height: 100 };
                 
-                // Build a context window of text before and after the paragraph
-                const doc = view.state.doc;
-                const parentPos = resolvedPos.before(resolvedPos.depth);
-                const parentEnd = resolvedPos.after(resolvedPos.depth);
-                
-                // Get the DOM node of the paragraph to overlay the UI exactly on top of it
-                let nodeRect = { top: coords.top, left: coords.left, bottom: coords.bottom, width: 400 };
                 try {
-                  const nodeDOM = view.nodeDOM(parentPos);
-                  if (nodeDOM && nodeDOM.getBoundingClientRect) {
-                    nodeRect = nodeDOM.getBoundingClientRect();
+                  const coords = view.coordsAtPos(safeFrom) || { top: 0, left: 0, bottom: 0 };
+                  nodeRect = { top: coords.top, left: coords.left, bottom: coords.bottom, width: 400, height: 100 };
+
+                  const doc = view.state.doc;
+                  const resolvedPos = doc.resolve(Math.min(safeFrom, doc.content.size));
+                  paragraphText = resolvedPos.parent.textContent || "";
+                  
+                  if (resolvedPos.depth > 0) {
+                    const parentPos = resolvedPos.before(resolvedPos.depth);
+                    const parentEnd = resolvedPos.after(resolvedPos.depth);
+                    
+                    // Try to get actual DOM rect for perfect overlay
+                    const nodeDOM = view.nodeDOM(parentPos);
+                    if (nodeDOM && nodeDOM.getBoundingClientRect) {
+                      nodeRect = nodeDOM.getBoundingClientRect();
+                    }
+                    
+                    // Extract context text safely
+                    const prevNodeStart = Math.max(0, parentPos - 500);
+                    const nextNodeEnd = Math.min(doc.content.size, parentEnd + 500);
+                    const contextBefore = doc.textBetween(prevNodeStart, parentPos, " ", "\ufffc");
+                    const contextAfter = doc.textBetween(parentEnd, nextNodeEnd, " ", "\ufffc");
+                    contextWindow = `Previous text: ${contextBefore}\n\nFollowing text: ${contextAfter}`;
                   }
                 } catch (e) {
-                  // Fallback to cursor coords if DOM lookup fails
+                  console.warn("Failed to extract full AI context window", e);
                 }
-                
-                const prevNodeStart = Math.max(0, parentPos - 500);
-                const nextNodeEnd = Math.min(doc.content.size, parentEnd + 500);
-                
-                const contextBefore = doc.textBetween(prevNodeStart, parentPos, " ", "\ufffc");
-                const contextAfter = doc.textBetween(parentEnd, nextNodeEnd, " ", "\ufffc");
-                const contextWindow = `Previous text: ${contextBefore}\n\nFollowing text: ${contextAfter}`;
 
                 extension.options.onActivate({
                   coords: nodeRect,

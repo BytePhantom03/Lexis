@@ -79,15 +79,9 @@ const Tiptap = ({ setHtml }) => {
 			/>
 
 			<div className="sticky mx-4 bottom-0 bg-white rounded-4xl my-2 shadow-md sm:w-fit sm:ml-1 dark:bg-[#010101] border-t p-3 flex flex-wrap gap-2 items-center">
-				<button
-					type="button"
-					onClick={(e) => {
-						e.preventDefault();
-						editor.chain().focus().redo().run();
-					}}
-					className="px-3 py-1 rounded-xl bg-gray-200 dark:bg-gray-900">
+				<div className="flex items-center">
 					<ImageUploader addImage={addImage} />
-				</button>
+				</div>
 
 				<button
 					type="button"
