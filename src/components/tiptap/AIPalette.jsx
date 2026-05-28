@@ -18,7 +18,7 @@ import {
   CornerDownLeft,
 } from "lucide-react";
 import { streamAIResponse } from "./aiService";
-import { supabase } from "../../config/supabaseClient";
+import supabase from "../../config/supabaseClient";
 
 const COMMANDS = [
   {
@@ -220,6 +220,9 @@ export default function AIPalette({
           },
           abortController.signal
         );
+        
+        // Autocomplete/Expand are done, close the palette!
+        handleClose();
       } else {
         await streamAIResponse(
           commandId,
@@ -278,6 +281,8 @@ export default function AIPalette({
       <div
         className="fixed z-[9999] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
         style={overlayStyle}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 px-4 py-3 border-b border-[#2d2e3d] bg-[#15151c]">
           <Sparkles size={16} className="text-[#9d7cf7]" />
@@ -304,6 +309,7 @@ export default function AIPalette({
 
         <div className="flex items-center gap-2 p-3 border-t border-[#2d2e3d] bg-[#15151c]">
           <button
+            type="button"
             onClick={handleAcceptRewrite}
             className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-[#6b4cde] hover:bg-[#7a5ce0] rounded-xl transition-colors cursor-pointer"
           >
@@ -311,6 +317,7 @@ export default function AIPalette({
             Accept
           </button>
           <button
+            type="button"
             onClick={handleRejectRewrite}
             className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-gray-300 bg-[#2d2e3d] hover:bg-[#3d3e52] rounded-xl transition-colors cursor-pointer"
           >
@@ -329,6 +336,8 @@ export default function AIPalette({
       <div
         className="fixed z-[9999] rounded-lg bg-[#1a1b23]/90 backdrop-blur-sm border border-[#3b3461] p-4 overflow-hidden"
         style={{ ...overlayStyle, height: coords?.height ? `${coords.height + 20}px` : '100px' }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#b395ff]/10 to-transparent animate-[shimmer_1.5s_infinite] -skew-x-12" style={{ backgroundSize: '200% 100%' }} />
         <div className="relative z-10 flex items-center gap-3">
@@ -349,6 +358,8 @@ export default function AIPalette({
       <div
         className="fixed z-[9999] w-[300px] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
         style={{ top: `${(coords?.bottom || 0) + 8}px`, left: `${coords?.left || 0}px` }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-4 px-5 py-5">
           <Loader2 size={20} className="text-[#9d7cf7] animate-spin" />
@@ -356,6 +367,13 @@ export default function AIPalette({
             <p className="text-sm font-medium text-gray-200">AI is writing...</p>
             <p className="text-xs text-gray-500 mt-0.5 capitalize">{activeCommand.replace("_", " ")}</p>
           </div>
+          <button
+            type="button"
+            onClick={handleClose}
+            className="ml-auto p-1.5 text-gray-500 hover:text-gray-300 rounded-full hover:bg-[#2d2e3d] transition-colors cursor-pointer"
+          >
+            <X size={16} />
+          </button>
         </div>
       </div>,
       document.body
@@ -368,6 +386,8 @@ export default function AIPalette({
       ref={paletteRef}
       className="fixed z-[9999] w-[320px] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
       style={{ top: `${(coords?.bottom || 0) + 8}px`, left: `${coords?.left || 0}px` }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-center gap-2 px-4 py-3">
         <Sparkles size={14} className="text-[#5b5b6b]" />
@@ -383,6 +403,7 @@ export default function AIPalette({
           return (
             <div key={cmd.id} className="relative mb-1 last:mb-0">
               <button
+                type="button"
                 onClick={() => {
                   if (cmd.submenu) {
                     setSelectedIndex(index);
@@ -424,6 +445,7 @@ export default function AIPalette({
 
                     return (
                       <button
+                        type="button"
                         key={sub.id}
                         onClick={() => executeCommand(sub.id)}
                         onMouseEnter={() => setSubIndex(sIdx)}
