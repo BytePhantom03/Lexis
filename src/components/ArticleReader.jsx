@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext, useRef } from "react";
 import { NavLink, useNavigate, useSearchParams } from "react-router-dom";
 import supabase from "../config/supabaseClient";
 import parse from "html-react-parser";
+import { motion } from "framer-motion";
 import {
 	AArrowDown,
 	ALargeSmall,
@@ -17,6 +18,7 @@ import {
 	EyeClosed,
 	Heart,
 	Hourglass,
+	MessageCircle,
 	Pencil,
 	Share,
 	Share2,
@@ -27,6 +29,7 @@ import {
 import { toast } from "sonner";
 import Loader from "./Loader";
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "./utils/cn";
 import { userDp } from "../../public/avtar";
 import { dataContext, userContext } from "../context/Context";
 import CommentCard from "./CommentCard";
@@ -62,6 +65,18 @@ function ArticleReader() {
 	const bodyRef = useRef();
 	const [title, setTitle] = useState();
 	const [body, setBody] = useState();
+	const [scrollProgress, setScrollProgress] = useState(0);
+
+	useEffect(() => {
+		const handleScroll = () => {
+			const totalScroll = document.documentElement.scrollTop;
+			const windowHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+			const scroll = windowHeight > 0 ? totalScroll / windowHeight : 0;
+			setScrollProgress(scroll);
+		}
+		window.addEventListener('scroll', handleScroll);
+		return () => window.removeEventListener('scroll', handleScroll);
+	}, []);
 
 	async function handleEditChanges() {
 		setTitle(titleRef.current.value);
@@ -397,198 +412,217 @@ function ArticleReader() {
 		}
 	}
 
+
+
 	return (
-		<div className="min-h-screen    no-scrollbar  ">
-			{!reading && (
-				<div>
-					<NavbarPage />
-				</div>
-			)}
+		<div className="min-h-screen bg-background relative selection:bg-indigo-500/30">
+			{/* Reading Progress Bar */}
+			<div className="fixed top-0 left-0 w-full h-1.5 z-[100] bg-gray-200 dark:bg-white/5">
+				<div 
+					className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-500 transition-all duration-150 ease-out"
+					style={{ width: `${scrollProgress * 100}%` }}
+				></div>
+			</div>
+
+			{!reading && <NavbarPage />}
 
 			{reading && (
-				<div
-					className="border w-fit px-2 p-2 absolute top-1 right-2 items-center  flex gap-1 rounded-2xl shadow-xs bg-gray-50 dark:bg-gray-800 cursor-pointer"
-					onClick={handleReader}>
-					<span>
-						<Eye size={18} />{" "}
-					</span>
-					<span className="text-xs "> Turn off reading mode</span>{" "}
-				</div>
+				<motion.div
+					initial={{ opacity: 0, y: -20 }}
+					animate={{ opacity: 1, y: 0 }}
+					className="fixed top-4 right-4 z-50 glass-panel px-4 py-2 flex items-center gap-2 cursor-pointer hover:bg-white/10 transition-colors"
+					onClick={handleReader}
+				>
+					<Eye size={16} className="text-gray-400" />
+					<span className="text-sm font-medium text-foreground">Exit Reading Mode</span>
+				</motion.div>
 			)}
 
-			<article
-				className={`max-w-4xl pt-12  ${reading && "py-12"} mx-auto px-4 ${
-					!reading ? "mt-14" : "pt-12"
-				} py-8"`}>
-				<h1
-					className={`text-4xl md:text-6xl sm:text-5xl font-bold mb-6 text-gray-900 dark:text-foreground  ${
-						reading && "font-stretch-200% font-serif dark:text-orange-300 "
-					}   `}>
-					{title}
-				</h1>
+			<article className={`max-w-3xl mx-auto px-4 ${!reading ? "pt-32" : "pt-20"} pb-20`}>
+				
+				<motion.div 
+					initial={{ opacity: 0, y: 20 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={{ duration: 0.6 }}
+				>
+					{/* Categories/Tags (Dummy for now) */}
+					<div className="flex items-center gap-2 mb-6">
+						<span className="text-xs font-bold tracking-wider uppercase text-indigo-500 bg-indigo-500/10 px-3 py-1 rounded-full">Article</span>
+						{time && (
+							<span className="flex items-center text-xs font-medium text-gray-500 bg-gray-100 dark:bg-white/5 px-3 py-1 rounded-full">
+								<Hourglass size={12} className="mr-1.5" />
+								{time?.text}
+							</span>
+						)}
+					</div>
+
+					<h1 className={cn(
+						"text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-foreground mb-8 leading-[1.15]",
+						reading && "font-serif text-slate-900 dark:text-slate-100"
+					)}>
+						{title}
+					</h1>
+				</motion.div>
 
 				{!reading && (
-					<div className="flex    flex-row  justify-between  items-start gap-4 mb-8 pb-8 border-b border-gray-200 dark:border-gray-700">
-						<div>
-							<div className="flex  ">
-								<div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-									<span
-										title="Published Date"
-										className="flex flex-row items-center">
-										<CalendarDays className="ml-2" size={16} />
-										<span className="px-1 flex">
-											{" "}
-											{formatDate(article.created_at)}
-										</span>
-									</span>
-									<>
-										{time && (
-											<span
-												title="Expected reading duration"
-												className="flex flex-row items-center">
-												<span>•</span>
-												<BookOpenCheck className="ml-2" size={16} />
-												<span className="px-1 flex"> {time.text}</span>
+						<>
+							<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 py-6 border-y border-[#e8e8ec] dark:border-white/10 mb-12">
+								<div className="flex items-center gap-4">
+									<div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+										<span
+											title="Published Date"
+											className="flex flex-row items-center">
+											<CalendarDays className="ml-2" size={16} />
+											<span className="px-1 flex">
+												{" "}
+												{formatDate(article.created_at)}
 											</span>
-										)}
-									</>
-									{article.view_count && (
+										</span>
 										<>
-											<span>•</span>
-											<span>{article.view_count} views</span>
+											{time && (
+												<span
+													title="Expected reading duration"
+													className="flex flex-row items-center">
+													<span>•</span>
+													<BookOpenCheck className="ml-2" size={16} />
+													<span className="px-1 flex"> {time.text}</span>
+												</span>
+											)}
 										</>
-									)}
+										{article.view_count && (
+											<>
+												<span>•</span>
+												<span>{article.view_count} views</span>
+											</>
+										)}
+									</div>
 								</div>
-							</div>
 
-							<div className="rounded-xl mt-2">
-								<div className="flex items-center gap-1">
-									<img
-										src={author?.profile_img || userDp}
-										alt={author?.username}
-										className="h-10 mr-4 rounded-full object-cover cursor-pointer"
-										onClick={() => navigate(`/profile/${author?.username}`)}
-									/>
-									<div className="flex-1">
+								<div className="flex items-center gap-4">
+									<div className="flex items-center gap-3">
+										<img
+											src={author?.profile_img || userDp}
+											alt={author?.username}
+											className="h-10 w-10 rounded-full object-cover cursor-pointer shadow-sm"
+											onClick={() => navigate(`/profile/${author?.username}`)}
+										/>
 										<h3
-											className="font-bold -mb-1 cursor-pointer hover:underline"
+											className="font-bold cursor-pointer hover:underline text-foreground text-sm uppercase tracking-wide"
 											onClick={() => navigate(`/profile/${author?.username}`)}>
 											{author?.name || author?.username}
 										</h3>
-										<p className="text-gray-600 text-xs dark:text-gray-400">
-											{author?.about || "Hey, I write on Lexis."}
-										</p>
+									</div>
+
+									<div className="flex items-center justify-center pl-4 border-l border-[#e8e8ec] dark:border-white/10">
+										<ReaderMenu
+											child={
+												<ul
+													className="*:pl-2 *:pr-12  *:py-2 *:mx-0.5 *:rounded-sm  *:my-0.5  py-0.5 dark:*:hover:bg-[#2a2a2a] *:cursor-pointer *:hover:bg-[#e9e9e9]
+												
+												
+												">
+													<li
+														className="flex items-center gap-1"
+														onClick={handleReader}>
+														<span>
+															<BookOpenText size={16} />
+														</span>
+														<span className="text-sm">Reading Mode</span>
+													</li>
+
+													<li
+														className="flex items-center  gap-1"
+														onClick={handleShare}>
+														<span>
+															<Share2 size={18} />
+														</span>
+														<span className="text-sm">Share</span>
+													</li>
+
+													{userId == author?.user_id && (
+														<>
+															<EditProfileDetails
+																title={"Edit article"}
+																trigger={
+																	<li className="flex items-center gap-1">
+																		<span>
+																			<Pencil size={16} />
+																		</span>
+																		<span className="text-sm">Edit Article</span>
+																	</li>
+																}
+																child={
+																	<>
+																		<div
+																			className="
+																		
+																		
+																		 *:w-full w-full *:my-2 
+																		
+																		">
+																			<label className=" flex flex-col *: *: *: ">
+																				<span className="dark:text-gray-500 text-gray-900 font-semibold  border-l-4 border-gray-600 pl-2 mb-3 py-0">
+																					Title
+																				</span>
+																				<input
+																					type="text"
+																					className="  text-gray-800 dark:text-gray-200 border rounded-lg py-2 px-4 outline-1 focus:outline-blue-500"
+																					placeholder="title"
+																					defaultValue={title}
+																					ref={titleRef}
+																				/>
+																			</label>
+
+																			<label className="  flex flex-col  ">
+																				<span className="dark:text-gray-500 text-gray-900 font-semibold  border-l-4 mt-4 mb-3 border-gray-600 pl-2  py-0">
+																					Article Body
+																				</span>
+																				<textarea
+																					type="text"
+																					className="text-gray-800 dark:text-gray-200 sm:min-h-80  no-scrollbar outline-1 focus:outline-blue-500 border px-4 rounded-lg py-2"
+																					placeholder="Article body start here.."
+																					defaultValue={body}
+																					ref={bodyRef}
+																				/>
+																			</label>
+																		</div>
+																	</>
+																}
+																handleEditChanges={handleEditChanges}
+															/>
+
+															<AlertDelete
+																handleDelete={handleDelete}
+																trigger={
+																	<li
+																		onClick={(e) => {
+																			e.stopPropagation();
+																		}}
+																		className="flex items-center gap-1 text-red-500 hover:!bg-red-50 dark:hover:!bg-red-500/10 transition-colors">
+																		<span>
+																			<Trash2 size={16} />
+																		</span>
+																		<span className="text-sm font-medium ml-0.5">Delete Post</span>
+																	</li>
+																}
+															/>
+														</>
+													)}
+												</ul>
+											}
+										/>
 									</div>
 								</div>
 							</div>
-						</div>
-
-						<div>
-							<ReaderMenu
-								child={
-									<ul
-										className="*:pl-2 *:pr-12  *:py-2 *:mx-0.5 *:rounded-sm  *:my-0.5  py-0.5 dark:*:hover:bg-[#2a2a2a] *:cursor-pointer *:hover:bg-[#e9e9e9]
-									
-									
-									">
-										<li
-											className="flex items-center gap-1"
-											onClick={handleReader}>
-											<span>
-												<BookOpenText size={16} />
-											</span>
-											<span className="text-sm">Reading Mode</span>
-										</li>
-
-										<li
-											className="flex items-center  gap-1"
-											onClick={handleShare}>
-											<span>
-												<Share2 size={18} />
-											</span>
-											<span className="text-sm">Share</span>
-										</li>
-
-										{userId == author?.user_id && (
-											<>
-												<EditProfileDetails
-													title={"Edit article"}
-													trigger={
-														<li className="flex items-center gap-1">
-															<span>
-																<Pencil size={16} />
-															</span>
-															<span className="text-sm">Edit Article</span>
-														</li>
-													}
-													child={
-														<>
-															<div
-																className="
-															
-															
-															 *:w-full w-full *:my-2 
-															
-															">
-																<label className=" flex flex-col *: *: *: ">
-																	<span className="dark:text-gray-500 text-gray-900 font-semibold  border-l-4 border-gray-600 pl-2 mb-3 py-0">
-																		Title
-																	</span>
-																	<input
-																		type="text"
-																		className="  text-gray-800 dark:text-gray-200 border rounded-lg py-2 px-4 outline-1 focus:outline-blue-500"
-																		placeholder="title"
-																		defaultValue={title}
-																		ref={titleRef}
-																	/>
-																</label>
-
-																<label className="  flex flex-col  ">
-																	<span className="dark:text-gray-500 text-gray-900 font-semibold  border-l-4 mt-4 mb-3 border-gray-600 pl-2  py-0">
-																		Article Body
-																	</span>
-																	<textarea
-																		type="text"
-																		className="text-gray-800 dark:text-gray-200 sm:min-h-80  no-scrollbar outline-1 focus:outline-blue-500 border px-4 rounded-lg py-2"
-																		placeholder="Article body start here.."
-																		defaultValue={body}
-																		ref={bodyRef}
-																	/>
-																</label>
-															</div>
-														</>
-													}
-													handleEditChanges={handleEditChanges}
-												/>
-
-												<AlertDelete
-													handleDelete={handleDelete}
-													trigger={
-														<li
-															onClick={(e) => {
-																e.stopPropagation();
-															}}
-															className="flex items-center gap-1 text-red-500 hover:!bg-red-50 dark:hover:!bg-red-500/10 transition-colors">
-															<span>
-																<Trash2 size={16} />
-															</span>
-															<span className="text-sm font-medium ml-0.5">Delete Post</span>
-														</li>
-													}
-												/>
-											</>
-										)}
-									</ul>
-								}
-							/>
-						</div>
-					</div>
-				)}
-
+						</>
+					)}
 				<div
-					className={`tiptapEditor pb-12  ${
-						reading && "font-serif dark:text-orange-300"
-					}  dark:text-[#E0E0E0] flex flex-col overflow-x-auto  flex-wrap break-normal wrap-break-word max-w-full wrap-anywhere  text-xl mb-2`}>
+					className={cn(
+						"tiptapEditor pb-12 flex flex-col overflow-x-auto flex-wrap break-normal wrap-break-word max-w-full wrap-anywhere mb-2 transition-all duration-700 ease-in-out",
+						reading
+							? "font-serif text-xl md:text-[22px] leading-[1.8] tracking-wide text-slate-800 dark:text-[#E2E8F0] max-w-[65ch] mx-auto"
+							: "text-lg leading-relaxed text-gray-800 dark:text-[#E0E0E0]"
+					)}>
 					{parse(body)}
 				</div>
 

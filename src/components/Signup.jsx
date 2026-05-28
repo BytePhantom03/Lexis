@@ -3,7 +3,7 @@ import supabase from "../config/supabaseClient";
 import { AlertColors } from "./ui/AlertColors";
 import { AlertBasic } from "./ui/AlertBasic";
 import { NavLink, useNavigate } from "react-router-dom";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Sparkles, LineChart } from "lucide-react";
 import { toast } from "sonner";
 import GoogleComp from "./GoogleComp";
 import LoginDivider from "./LoginDivider";
@@ -11,6 +11,7 @@ import EmailComp from "./EmailComp";
 import { SignWithEmail } from "./SignWithEmail";
 import illustration from "../assets/illu2.svg";
 import ProfileFooter from "./ProfileFooter";
+import { motion } from "framer-motion";
 
 function Signup() {
 	const emailRef = useRef();
@@ -100,205 +101,222 @@ function Signup() {
 	}
 
 	return (
-		<div className="min-h-screen bg-[#fafafa] dark:bg-[#0a0a0b] overflow-x-hidden">
-			{/* Logo */}
-			<div>
-				<h1
-					onClick={() => navi("/")}
-					className="fixed top-6 left-6 md:left-12 z-50 text-2xl font-bold gradient-text cursor-pointer">
-					Lexis
-				</h1>
-			</div>
+		<div className="flex min-h-screen bg-background selection:bg-indigo-500/30">
+			{/* Left Form Section */}
+			<div className="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 xl:px-24 relative min-h-screen">
+				{/* Background Glow */}
+				<div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+					<div className="absolute top-0 left-0 w-full h-1/2 bg-purple-500/5 blur-[150px]"></div>
+				</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-2 min-h-screen w-full items-center">
-				<div className="flex flex-col justify-center px-6 py-20 md:px-16 lg:px-24">
-					<header className="mb-10">
-						<p className="text-5xl md:text-7xl font-extrabold tracking-tight text-gray-900 dark:text-white leading-tight">
-							Give your <br />
-							<span className="gradient-text">
-								stories
-							</span>{" "}
-							a home.
-						</p>
-						<p className="mt-6 text-lg md:text-xl border-l-4 border-indigo-500 pl-4 text-gray-500 dark:text-gray-400 max-w-md">
+				<motion.div 
+					initial={{ opacity: 0, x: -20 }}
+					animate={{ opacity: 1, x: 0 }}
+					transition={{ duration: 0.6 }}
+					className="w-full max-w-md mx-auto"
+				>
+					{/* Brand */}
+					<div 
+						onClick={() => navi("/")}
+						className="flex items-center gap-2 cursor-pointer mb-10 w-fit"
+					>
+						<div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-[0_0_15px_rgba(99,102,241,0.5)]">
+							<Sparkles size={16} className="text-white" />
+						</div>
+						<h1 className="text-2xl font-bold tracking-tight text-foreground">Lexis</h1>
+					</div>
+
+					<header className="mb-8">
+						<h2 className="text-4xl font-extrabold tracking-tight text-foreground mb-3">
+							Give your <span className="gradient-text">stories</span> a home.
+						</h2>
+						<p className="text-sm text-gray-500 dark:text-gray-400">
 							Join a community of modern thinkers. Get started now.
 						</p>
 					</header>
 
 					<div className="space-y-6 w-full">
-						<GoogleComp />
+						{!showForm && (
+							<>
+								<GoogleComp />
+								<LoginDivider />
+							</>
+						)}
+
 						<SignWithEmail
 							child={
-								<div className="w-full flex ">
+								<div className="w-full">
 									{!showForm ? (
-										/* LOGIN / INITIAL SIGNUP FORM STYLE */
-										<div>
-											<form onSubmit={handleSubmit}>
-												<div className="sm:mx-12 mx-2 flex flex-col gap-0">
-													<label
-														htmlFor="email"
-														className="text-sm font-normal text-foreground">
-														Enter your email
-													</label>
-													<input
-														onChange={() => setErrorMsg(null)}
-														ref={emailRef}
-														type="email"
-														id="email"
-														required
-														placeholder="lexis@exmple.com"
-														className="p-2.5 mt-1 lowercase w-full rounded-xl
-														bg-[#f5f5f7] dark:bg-[#1c1c1f]
-														border border-[#e8e8ec] dark:border-[#2a2a2e]
-														text-foreground outline-none
-														focus:ring-2 focus:ring-indigo-500/40
-														transition-all duration-200
-														"
-													/>
-													<br />
-													<label
-														htmlFor="password"
-														className="text-sm font-normal text-foreground">
-														Enter your password
-													</label>
-													<input
-														onChange={() => setErrorMsg(null)}
-														ref={passwordRef}
-														type="text" /* Changed to password type for security */
-														id="password"
-														required
-														placeholder="••••••"
-														minLength={6}
-														maxLength={20}
-														className="p-2 mt-1 e border-0 outline-0 rounded-sm  bg-slate-300 
-														
-														text-foreground
-														min-w-1 sm:w-2/2 
-														dark:bg-gray-800
-														
-														"
-													/>
-													<p className="text-xs wrap-anywhere text-slate-800  text-sm   dark:text-slate-500/60 mt-2">
-														Possibly your password had min. length 6, included
-														<br className="hidden sm:block" />
-														uppercase, lowercase, numbers and special symbols.
-													</p>
-												</div>
+										/* STEP 1: LOGIN / INITIAL SIGNUP FORM */
+										<form onSubmit={handleSubmit} className="space-y-5">
+											<div className="space-y-1">
+												<label htmlFor="email" className="text-sm font-medium text-foreground">
+													Email Address
+												</label>
+												<input
+													onChange={() => setErrorMsg(null)}
+													ref={emailRef}
+													type="email"
+													id="email"
+													required
+													placeholder="you@example.com"
+													className="w-full px-4 py-3 rounded-xl bg-white/5 border border-[#e8e8ec] dark:border-white/10 text-foreground focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all outline-none"
+												/>
+											</div>
 
-												<div className="flex flex-col sm:flex-row justify-center sm:justify-start items-center">
-													<button
-														type="submit"
-														className="btn-primary mt-4 px-8 py-2.5 rounded-xl text-sm font-semibold cursor-pointer sm:ml-12 transition-all duration-300">
-														Continue
-													</button>
+											<div className="space-y-1">
+												<label htmlFor="password" className="text-sm font-medium text-foreground">
+													Create Password
+												</label>
+												<input
+													onChange={() => setErrorMsg(null)}
+													ref={passwordRef}
+													type="password"
+													id="password"
+													required
+													placeholder="••••••••"
+													minLength={6}
+													maxLength={20}
+													className="w-full px-4 py-3 rounded-xl bg-white/5 border border-[#e8e8ec] dark:border-white/10 text-foreground focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all outline-none"
+												/>
+												<p className="text-xs text-gray-500 mt-2">
+													Must be at least 6 characters long.
+												</p>
+											</div>
+
+											<button
+												type="submit"
+												className="w-full py-3 mt-2 rounded-xl font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all duration-300 hover:-translate-y-0.5"
+											>
+												Create Account
+											</button>
+											
+											{errorMsg && (
+												<div className="mt-4">
+													<AlertColors errorMsg={errorMsg} />
 												</div>
-												{errorMsg && (
-													<div className="mx-12 mt-4">
-														<AlertColors errorMsg={errorMsg} />
-													</div>
-												)}
-											</form>
-										</div>
+											)}
+										</form>
 									) : (
-										/* USER DATA DETAILS FORM STYLE */
-										<div className="w-full sm:min-w-1/2">
-											<form onSubmit={handleUserData}>
-												<div className="sm:mx-12 justify-center  mx-2 flex flex-col gap-0 overflow-y-scroll no-scrollbar">
-													<label className="text-sm font-normal text-foreground">
-														Full Name
-													</label>
-													<input
-														ref={nameRef}
-														type="text"
-														required
-														className="p-2 mt-1 lowercase border-0 outline-0 rounded-sm  bg-slate-300 
-														
-														text-foreground
-														min-w-1 sm:w-2/2 
-														dark:bg-gray-800
-														
-														"
-													/>
-													<br />
-													<label className="text-sm font-normal text-foreground">
-														Username
-													</label>
-													<input
-														ref={usernameRef}
-														type="text"
-														required
-														className="p-2 mt-1 lowercase border-0 outline-0 rounded-sm  bg-slate-300 
-														
-														text-foreground
-														min-w-1 sm:w-2/2 
-														dark:bg-gray-800
-														
-														"
-													/>
-													<br />
-													<label className="text-sm font-normal text-foreground">
-														Date of Birth
-													</label>
-													<input
-														ref={dobRef}
-														type="date"
-														required
-														className="p-2 mt-1 lowercase border-0 outline-0 rounded-sm  bg-slate-300 
-														
-														text-foreground
-														min-w-1 sm:w-2/2 
-														dark:bg-gray-800
-														
-														"
-													/>
-												</div>
+										/* STEP 2: USER DATA DETAILS FORM */
+										<motion.form 
+											initial={{ opacity: 0, scale: 0.95 }}
+											animate={{ opacity: 1, scale: 1 }}
+											onSubmit={handleUserData} 
+											className="space-y-5"
+										>
+											<div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 mb-6">
+												<p className="text-sm font-medium text-indigo-400 flex items-center gap-2">
+													<Sparkles size={16} /> Just a few more details to set up your profile.
+												</p>
+											</div>
 
-												<div className="flex flex-col sm:flex-row justify-center sm:justify-start items-center">
-													<button
-														type="submit"
-														className="btn-primary mt-4 px-8 py-2.5 rounded-xl text-sm font-semibold cursor-pointer sm:ml-12 transition-all duration-300">
-														Save
-													</button>
-												</div>
+											<div className="space-y-1">
+												<label className="text-sm font-medium text-foreground">Full Name</label>
+												<input
+													ref={nameRef}
+													type="text"
+													required
+													placeholder="John Doe"
+													className="w-full px-4 py-3 rounded-xl bg-white/5 border border-[#e8e8ec] dark:border-white/10 text-foreground focus:ring-2 focus:ring-indigo-500/50 outline-none"
+												/>
+											</div>
 
-												<div className="mx-12 mt-4">
-													{errorMsg && <AlertColors errorMsg={errorMsg} />}
-													{success && (
-														<AlertBasic
-															title="Success!"
-															desc="Moving to next step..."
-														/>
-													)}
-												</div>
-											</form>
-										</div>
+											<div className="space-y-1">
+												<label className="text-sm font-medium text-foreground">Username</label>
+												<input
+													ref={usernameRef}
+													type="text"
+													required
+													placeholder="johndoe"
+													className="w-full px-4 py-3 rounded-xl bg-white/5 border border-[#e8e8ec] dark:border-white/10 text-foreground focus:ring-2 focus:ring-indigo-500/50 outline-none"
+												/>
+											</div>
+
+											<div className="space-y-1">
+												<label className="text-sm font-medium text-foreground">Date of Birth</label>
+												<input
+													ref={dobRef}
+													type="date"
+													required
+													className="w-full px-4 py-3 rounded-xl bg-white/5 border border-[#e8e8ec] dark:border-white/10 text-foreground focus:ring-2 focus:ring-indigo-500/50 outline-none dark:[color-scheme:dark]"
+												/>
+											</div>
+
+											<button
+												type="submit"
+												className="w-full py-3 mt-4 rounded-xl font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] transition-all duration-300 hover:-translate-y-0.5"
+											>
+												Save Profile
+											</button>
+
+											<div className="mt-4">
+												{errorMsg && <AlertColors errorMsg={errorMsg} />}
+												{success && <AlertBasic title="Success!" desc="Moving to next step..." />}
+											</div>
+										</motion.form>
 									)}
 								</div>
 							}
 						/>
 
-						<p className="text-sm text-gray-600 dark:text-gray-400">
-							Already have an account?{" "}
-							<span
-								onClick={() => navi("/login")}
-								className="text-indigo-500 hover:text-indigo-400 cursor-pointer underline font-medium transition-colors">
-								Log in <ExternalLink className="inline pb-1" size={14} />
-							</span>
-						</p>
+						{!showForm && (
+							<div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
+								Already have an account?{" "}
+								<span
+									onClick={() => navi("/login")}
+									className="text-foreground font-semibold hover:text-indigo-400 cursor-pointer transition-colors"
+								>
+									Log in here
+								</span>
+							</div>
+						)}
 					</div>
-				</div>
+				</motion.div>
 
-				<div className="hidden md:flex items-center justify-center h-full bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/20 dark:to-violet-950/20">
-					<img
-						src={illustration}
-						className="w-4/5 max-w-lg object-contain animate-float"
-						alt="Lexis Illustration"
-					/>
+				<div className="absolute bottom-8 left-0 w-full px-8 sm:px-16 xl:px-24">
+					<ProfileFooter />
 				</div>
 			</div>
 
-			<div className="absolute bottom-0 right-0 w-full  ">
-				<ProfileFooter />
+			{/* Right Interactive/Premium Section */}
+			<div className="hidden lg:flex flex-col items-center justify-center w-1/2 relative bg-[#0a0a0b] border-l border-white/5 overflow-hidden">
+				{/* Massive Abstract Glows */}
+				<div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-indigo-600/20 rounded-full blur-[150px] animate-float"></div>
+				<div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-purple-600/20 rounded-full blur-[120px] animate-float stagger-3"></div>
+				
+				{/* Floating Glass Panels (Abstract UI representation) */}
+				<motion.div 
+					initial={{ opacity: 0, scale: 0.9 }}
+					animate={{ opacity: 1, scale: 1 }}
+					transition={{ duration: 0.8, delay: 0.2 }}
+					className="relative z-10 w-[80%] max-w-lg"
+				>
+					<div className="glass-panel p-8 rounded-3xl border border-white/10 shadow-2xl relative">
+						<div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 mb-6 flex items-center justify-center shadow-lg">
+							<Sparkles className="text-white" size={24} />
+						</div>
+						<h3 className="text-2xl font-bold text-white mb-2">Build Your Audience</h3>
+						<p className="text-gray-400 leading-relaxed mb-6">
+							Create a beautiful profile, publish stunning articles, and grow your subscriber base with our powerful tools.
+						</p>
+						<div className="flex items-center gap-3">
+							<div className="flex -space-x-3">
+								<div className="w-10 h-10 rounded-full bg-indigo-500 border-2 border-[#141416]"></div>
+								<div className="w-10 h-10 rounded-full bg-purple-500 border-2 border-[#141416]"></div>
+								<div className="w-10 h-10 rounded-full bg-cyan-500 border-2 border-[#141416]"></div>
+							</div>
+							<span className="text-sm font-medium text-gray-400">Join 10,000+ creators</span>
+						</div>
+					</div>
+					
+					{/* Floating accessory panels */}
+					<div className="absolute -right-12 top-12 glass-panel p-4 rounded-2xl border border-white/10 shadow-xl animate-float stagger-2">
+						<LineChart className="text-cyan-400 mb-2" size={20} />
+						<div className="w-24 h-2 bg-white/10 rounded-full mb-2"></div>
+						<div className="w-16 h-2 bg-white/10 rounded-full"></div>
+					</div>
+				</motion.div>
 			</div>
 		</div>
 	);

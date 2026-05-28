@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import supabase from "../config/supabaseClient";
 import { AlertBasic } from "./ui/AlertBasic";
-import { ExternalLink, LineChart, LoaderCircle } from "lucide-react";
+import { ExternalLink, LineChart, LoaderCircle, Sparkles } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { AlertColors } from "./ui/AlertColors";
 import { userContext } from "../context/Context";
@@ -11,6 +11,7 @@ import LoginDivider from "./LoginDivider";
 import { LoginWithEmail } from "./LoginWithEmail";
 import illustration from "../assets/illu2.svg";
 import ProfileFooter from "./ProfileFooter";
+import { motion } from "framer-motion";
 
 function Login() {
 
@@ -70,158 +71,160 @@ function Login() {
 	}
 
 	return (
-		<div className="flex min-h-screen bg-[#fafafa] dark:bg-[#0a0a0b]">
-			<div className="w-full md:w-1/2">
+		<div className="flex min-h-screen bg-background selection:bg-indigo-500/30">
+			<div className="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 xl:px-24 relative min-h-screen">
+				{/* Background Glow */}
+				<div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+					<div className="absolute top-0 left-0 w-full h-1/2 bg-indigo-500/5 blur-[150px]"></div>
+				</div>
+
 				{!userInfo && (
-					<div className="flex flex-col justify-center px-8 sm:px-16 lg:px-24 relative min-h-screen">
+					<motion.div 
+						initial={{ opacity: 0, x: -20 }}
+						animate={{ opacity: 1, x: 0 }}
+						transition={{ duration: 0.6 }}
+						className="w-full max-w-sm mx-auto"
+					>
 						{/* Brand */}
-						<h1
+						<div 
 							onClick={() => navi("/")}
-							className="gradient-text text-2xl font-bold cursor-pointer mb-2">
-							Lexis
-						</h1>
+							className="flex items-center gap-2 cursor-pointer mb-12 w-fit"
+						>
+							<div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-[0_0_15px_rgba(99,102,241,0.5)]">
+								<Sparkles size={16} className="text-white" />
+							</div>
+							<h1 className="text-2xl font-bold tracking-tight text-foreground">Lexis</h1>
+						</div>
 
 						{/* Welcome heading */}
-						<p className="text-5xl sm:text-6xl font-extrabold tracking-tight text-gray-900 dark:text-white mt-12">
-							Welcome{" "}
-							<span className="gradient-text">
-								{" "}
-								<br />
-								back{" "}
-								<span className="inline-block -ml-2 mx-0 px-0 rotate-6 hover:rotate-0 transition-transform duration-300 cursor-default">
-									!
-								</span>
-							</span>
-						</p>
-
-						{/* Subtitle */}
-						<p className="text-lg text-gray-500 dark:text-gray-400 mt-4 border-l-4 border-indigo-500 pl-4">
-							Log in to your digital desk.
+						<h2 className="text-4xl font-extrabold tracking-tight text-foreground mb-3">
+							Welcome back
+						</h2>
+						<p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
+							Log in to your digital desk and start creating.
 						</p>
 
 						{/* Google auth */}
-						<div className="mt-8">
+						<div className="mb-6">
 							<GoogleComp />
 						</div>
 
-						<br />
+						<LoginDivider />
+
 						<LoginWithEmail
 							child={
-								<div>
-									<form onSubmit={handleSubmit}>
-										<div className="flex justify-center flex-col gap-0">
-											<label
-												htmlFor="email"
-												className="text-sm font-normal text-gray-700 dark:text-gray-300">
-												Enter your email
-											</label>{" "}
-											<input
-												onChange={() => {
-													setErrorMsg(null);
-												}}
-												ref={emailRef}
-												type="email"
-												id="email"
-												required
-												title="Enter your email"
-												placeholder="lexis@exmple.com"
-												className="p-2.5 mt-1 lowercase border border-[#e8e8ec] dark:border-[#2a2a2e] outline-0 rounded-xl bg-white dark:bg-[#141416]
-												text-gray-900 dark:text-white
-												w-full sm:w-3/4
-												focus:ring-2 focus:ring-indigo-500/40 transition-all duration-300
-												"
-											/>
-											<br />
-											<label
-												htmlFor="password"
-												className="text-sm font-normal text-gray-700 dark:text-gray-300">
-												Enter your password
-											</label>{" "}
-											<input
-												onChange={() => {
-													setErrorMsg(null);
-												}}
-												ref={passwordRef}
-												type="text"
-												id="password"
-												required
-												placeholder="••••••"
-												minLength={6}
-												maxLength={20}
-												title="enter your password"
-												className="p-2.5 mt-1 border border-[#e8e8ec] dark:border-[#2a2a2e] outline-0 rounded-xl bg-white dark:bg-[#141416]
-												text-gray-900 dark:text-white
-												w-full sm:w-3/4
-												focus:ring-2 focus:ring-indigo-500/40 transition-all duration-300
-												"
-											/>{" "}
-											<p className="text-xs wrap-anywhere text-gray-500 dark:text-gray-500 mt-2">
-												Possibly your password had min. length 6, included{" "}
-												<br className="hidden sm:block" />
-												uppercase,lowercase,numbers and special symbols.
-											</p>
-										</div>
+								<form onSubmit={handleSubmit} className="mt-6 space-y-5">
+									<div className="space-y-1">
+										<label htmlFor="email" className="text-sm font-medium text-foreground">
+											Email
+										</label>
+										<input
+											onChange={() => setErrorMsg(null)}
+											ref={emailRef}
+											type="email"
+											id="email"
+											required
+											placeholder="you@example.com"
+											className="w-full px-4 py-3 rounded-xl bg-white/5 border border-[#e8e8ec] dark:border-white/10 text-foreground focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all outline-none"
+										/>
+									</div>
 
-										<div className="flex flex-col sm:flex-row justify-start items-center mt-4 gap-4">
-											{" "}
-											<button
-												type="submit"
-												className="btn-primary px-8 py-2.5 rounded-xl text-white font-medium cursor-pointer transition-all duration-300">
-												Continue
-											</button>
-											<div className="text-sm underline text-gray-500 dark:text-gray-400 hover:text-indigo-500 transition-all duration-300">
-												<NavLink to={"/flow"}>Forgot password?</NavLink>
-											</div>
+									<div className="space-y-1">
+										<div className="flex items-center justify-between">
+											<label htmlFor="password" className="text-sm font-medium text-foreground">
+												Password
+											</label>
+											<NavLink to={"/flow"} className="text-xs text-indigo-500 hover:text-indigo-400 font-medium transition-colors">
+												Forgot password?
+											</NavLink>
 										</div>
+										<input
+											onChange={() => setErrorMsg(null)}
+											ref={passwordRef}
+											type="password"
+											id="password"
+											required
+											placeholder="••••••••"
+											minLength={6}
+											className="w-full px-4 py-3 rounded-xl bg-white/5 border border-[#e8e8ec] dark:border-white/10 text-foreground focus:ring-2 focus:ring-indigo-500/50 focus:border-transparent transition-all outline-none"
+										/>
+									</div>
 
-										{errorMsg && <AlertColors errorMsg={errorMsg} />}
-									</form>
-								</div>
+									<button
+										type="submit"
+										className="w-full py-3 rounded-xl font-bold text-white bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.3)] hover:shadow-[0_0_25px_rgba(139,92,246,0.4)] transition-all duration-300 hover:-translate-y-0.5"
+									>
+										Continue
+									</button>
+
+									{errorMsg && <AlertColors errorMsg={errorMsg} />}
+								</form>
 							}
 						/>
 
-						<br />
-						<div className="text-sm text-gray-600 dark:text-gray-400">
+						<div className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
 							Don't have an account?{" "}
 							<span
-								onClick={() => {
-									navi("/signup");
-								}}
-								className="text-indigo-500 hover:text-indigo-400 cursor-pointer underline transition-all duration-300">
-								Create one
-								<ExternalLink className="inline ml-1 mb-1" size={"12px"} />
+								onClick={() => navi("/signup")}
+								className="text-foreground font-semibold hover:text-indigo-400 cursor-pointer transition-colors"
+							>
+								Sign up for free
 							</span>
 						</div>
-
-						{/* Footer */}
-						<div className="mt-auto pt-8">
-							<ProfileFooter />
-						</div>
-					</div>
+					</motion.div>
 				)}
 
 				{userInfo && (
-					<div
-						className={`min-h-screen flex items-center justify-center bg-[#fafafa] dark:bg-[#0a0a0b]`}>
-						<div className="flex items-center gap-2 text-gray-900 dark:text-white">
-							<LoaderCircle size={24} className="animate-spin" />
-							<span>Hold tight...</span>
-						</div>
+					<div className="flex flex-col items-center justify-center w-full">
+						<LoaderCircle size={32} className="animate-spin text-indigo-500 mb-4" />
+						<p className="text-gray-500 dark:text-gray-400 font-medium">Entering your workspace...</p>
 					</div>
 				)}
+
+				<div className="absolute bottom-8 left-0 w-full px-8 sm:px-16 xl:px-24">
+					<ProfileFooter />
+				</div>
 			</div>
 
-			{/* Right illustration section */}
-			<div className="hidden md:flex items-center justify-center w-1/2 bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-950/20 dark:to-violet-950/20">
-				<img
-					src={illustration}
-					className="w-full max-w-lg animate-float"
-					alt="Lexis Illustration"
-				/>
+			{/* Right Interactive/Premium Section */}
+			<div className="hidden lg:flex flex-col items-center justify-center w-1/2 relative bg-[#0a0a0b] border-l border-white/5 overflow-hidden">
+				{/* Massive Abstract Glows */}
+				<div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-indigo-600/20 rounded-full blur-[150px] animate-float"></div>
+				<div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-purple-600/20 rounded-full blur-[120px] animate-float stagger-3"></div>
+				
+				{/* Floating Glass Panels (Abstract UI representation) */}
+				<motion.div 
+					initial={{ opacity: 0, scale: 0.9 }}
+					animate={{ opacity: 1, scale: 1 }}
+					transition={{ duration: 0.8, delay: 0.2 }}
+					className="relative z-10 w-[80%] max-w-lg"
+				>
+					<div className="glass-panel p-8 rounded-3xl border border-white/10 shadow-2xl relative">
+						<div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 mb-6 flex items-center justify-center shadow-lg">
+							<Sparkles className="text-white" size={24} />
+						</div>
+						<h3 className="text-2xl font-bold text-white mb-2">The AI Copilot for Writers</h3>
+						<p className="text-gray-400 leading-relaxed mb-6">
+							Experience the fastest way to craft compelling stories, articles, and documentation. Powered by models that understand your tone.
+						</p>
+						<div className="flex items-center gap-3">
+							<div className="flex -space-x-3">
+								<div className="w-10 h-10 rounded-full bg-indigo-500 border-2 border-[#141416]"></div>
+								<div className="w-10 h-10 rounded-full bg-purple-500 border-2 border-[#141416]"></div>
+								<div className="w-10 h-10 rounded-full bg-cyan-500 border-2 border-[#141416]"></div>
+							</div>
+							<span className="text-sm font-medium text-gray-400">Join 10,000+ creators</span>
+						</div>
+					</div>
+					
+					{/* Floating accessory panels */}
+					<div className="absolute -right-12 top-12 glass-panel p-4 rounded-2xl border border-white/10 shadow-xl animate-float stagger-2">
+						<LineChart className="text-cyan-400 mb-2" size={20} />
+						<div className="w-24 h-2 bg-white/10 rounded-full mb-2"></div>
+						<div className="w-16 h-2 bg-white/10 rounded-full"></div>
+					</div>
+				</motion.div>
 			</div>
-
-			
-			
 		</div>
 	);
 }

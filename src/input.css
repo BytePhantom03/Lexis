@@ -180,18 +180,49 @@
   .stagger-3 { animation-delay: 0.15s; }
   .stagger-4 { animation-delay: 0.2s; }
   .stagger-5 { animation-delay: 0.25s; }
+}
 
-  /* Glassmorphism */
-  .glass {
-    background: rgba(255, 255, 255, 0.72);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+/* Premium Glassmorphism */
+  @utility glass {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+
+    .dark & {
+      background: rgba(15, 15, 20, 0.5);
+      backdrop-filter: blur(24px) saturate(150%);
+      -webkit-backdrop-filter: blur(24px) saturate(150%);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    }
   }
 
-  .dark .glass {
-    background: rgba(10, 10, 11, 0.78);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  @utility glass-panel {
+    @apply glass rounded-2xl;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Neon Glows */
+  @utility neon-glow-primary {
+    box-shadow: 0 0 20px 0px rgba(99, 102, 241, 0.3);
+  }
+  
+  @utility neon-glow-purple {
+    box-shadow: 0 0 20px 0px rgba(139, 92, 246, 0.3);
+  }
+
+  /* Premium Bento Grid Card */
+  @utility bento-card {
+    @apply glass-panel transition-all duration-300;
+
+    .dark &:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4), 0 0 20px 0px rgba(99, 102, 241, 0.15);
+    }
   }
 
   /* Gradient Text */
@@ -271,7 +302,6 @@
   .dark ::-webkit-scrollbar-thumb:hover {
     background: #4b5563;
   }
-}
 
 /* ===========================
    SHADCN THEME TOKENS
@@ -325,37 +355,38 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  /* Premium SaaS Light Mode Palette */
+  --background: oklch(0.988 0.004 256); /* Cool off-white, not pure white */
+  --foreground: oklch(0.210 0.015 256); /* Rich slate instead of harsh black */
+  --card: oklch(1 0 0); /* Pure white for cards to pop against off-white background */
+  --card-foreground: oklch(0.210 0.015 256);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.210 0.015 256);
+  --primary: oklch(0.488 0.243 264.376); /* Brand Indigo */
+  --primary-foreground: oklch(0.985 0 0); /* White text on primary */
+  --secondary: oklch(0.965 0.01 256); /* Very light cool gray */
+  --secondary-foreground: oklch(0.32 0.02 256);
+  --muted: oklch(0.965 0.01 256);
+  --muted-foreground: oklch(0.55 0.02 256);
+  --accent: oklch(0.965 0.01 256);
+  --accent-foreground: oklch(0.32 0.02 256);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: oklch(0.92 0.01 256); /* Soft cool border */
+  --input: oklch(0.92 0.01 256);
+  --ring: oklch(0.488 0.243 264.376);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar: oklch(0.988 0.004 256);
+  --sidebar-foreground: oklch(0.210 0.015 256);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-accent: oklch(0.965 0.01 256);
+  --sidebar-accent-foreground: oklch(0.32 0.02 256);
+  --sidebar-border: oklch(0.92 0.01 256);
+  --sidebar-ring: oklch(0.488 0.243 264.376);
 
   /* Custom Lexis tokens */
   --fontVerdana: Verdana, Geneva, Tahoma, sans-serif;

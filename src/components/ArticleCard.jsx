@@ -22,6 +22,8 @@ import { TimeFormate } from "./utils/TimeFormater";
 import HomeComment from "./HomeComment";
 import { ShareComponent } from "./ShareComponent";
 import { SignDialogue } from "./SignDialogue";
+import { motion } from "framer-motion";
+import { cn } from "./utils/cn";
 
 function ArticleCard({ article }) {
 	const { name, username, profile_img } = article.UserTable || { name: "Unknown", username: "unknown", profile_img: null };
@@ -153,14 +155,16 @@ function ArticleCard({ article }) {
 		setCommentClicked(true);
 	}
 
-	//
 	return (
-		<div
-			className={`${
-				id == articleId
-					? "bg-indigo-50/60 dark:bg-[#1c1c1f] "
-					: " bg-white dark:bg-[#141416]"
-			} group relative flex flex-col w-full border border-[#e8e8ec] dark:border-[#2a2a2e] overflow-hidden rounded-2xl card-hover mx-auto sm:mt-3 transition-all duration-300`}>
+		<motion.div
+			initial={{ opacity: 0, y: 20 }}
+			animate={{ opacity: 1, y: 0 }}
+			transition={{ duration: 0.4 }}
+			className={cn(
+				"group relative flex flex-col w-full bento-card mx-auto sm:mt-3 mb-6",
+				id == articleId ? "border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.15)]" : ""
+			)}
+		>
 
 			{/* Reading time badge */}
 			<span className="flex absolute top-3 right-3 flex-row items-center bg-white/80 dark:bg-[#1c1c1f]/90 backdrop-blur-sm rounded-full pl-2.5 py-1 px-2 z-10 border border-[#e8e8ec] dark:border-[#2a2a2e] transition-all duration-300">
@@ -304,7 +308,7 @@ function ArticleCard({ article }) {
 					</div>
 				</div>
 			</div>
-		</div>
+		</motion.div>
 	);
 }
 

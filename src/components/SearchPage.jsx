@@ -26,6 +26,7 @@ function SearchPage() {
 				setLoading(true);
 
 				let authorQuery = `username.ilike.%${text}%,name.ilike.%${text}%,about.ilike.%${text}%`;
+				let orQuery = `title.ilike.%${text}%,body.ilike.%${text}%`;
 
 				const { data: searchData, error: searchError } = await supabase
 					.from("ArticleTable")
