@@ -128,28 +128,20 @@ function ArticleCard({ article }) {
 			return;
 		}
 
-		// 3. Fetch fresh count from DB then update
-		const { data: freshData, error: fetchError } = await supabase
-			.from("ArticleTable")
-			.select("likes")
-			.eq("article_id", articleId)
-			.single();
-
-		if (fetchError) {
-			toast("❌ Error fetching like count");
-			setLikes((prev) => (wasLiked ? prev + 1 : prev - 1));
-			setIsLiking(false);
-			return;
-		}
-
-		const { error } = await supabase
-			.from("ArticleTable")
-			.update({ likes: freshData.likes + (wasLiked ? -1 : 1) })
-			.eq("article_id", articleId);
+		// 3. Update the ArticleTable count securely via RPC
+		const { error } = await supabase.rpc("increment_article_likes", {
+			target_article_id: articleId,
+			increment_by: wasLiked ? -1 : 1,
+		});
 
 		if (error) {
 			toast("❌ Error updating like count");
 			setLikes((prev) => (wasLiked ? prev + 1 : prev - 1));
+			setLikedArcticles((prev) => {
+				const newSet = new Set(prev);
+				wasLiked ? newSet.add(articleId) : newSet.delete(articleId);
+				return newSet;
+			});
 		}
 
 		setIsLiking(false);

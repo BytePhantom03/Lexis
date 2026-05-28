@@ -339,12 +339,11 @@ function ArticleReader() {
 			return;
 		}
 
-		// 4. Update the "ArticleTable" count
-		// We use the count we already have in memory + or - 1
-		const { error: articleError } = await supabase
-			.from("ArticleTable")
-			.update({ likes: wasLiked ? currentLikeCount - 1 : currentLikeCount + 1 })
-			.eq("article_id", article?.article_id);
+		// 4. Update the "ArticleTable" count securely via RPC
+		const { error: articleError } = await supabase.rpc("increment_article_likes", {
+			target_article_id: article?.article_id,
+			increment_by: wasLiked ? -1 : 1,
+		});
 
 		if (articleError) {
 			toast("❌ Error updating count");
