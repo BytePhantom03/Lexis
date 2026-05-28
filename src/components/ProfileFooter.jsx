@@ -19,7 +19,7 @@ function ProfileFooter() {
 				</div>
 				<a
 					className="flex items-center gap-1.5 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-					href="https://github.com/"
+					href="https://github.com/BytePhantom03/Lexis"
 					target="_self"
 					rel="noreferrer">
 					<img
