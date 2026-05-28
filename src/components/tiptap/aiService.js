@@ -6,15 +6,15 @@ const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 const PROMPTS = {
   autocomplete: (text) =>
-    `You are a writing assistant. Continue this paragraph naturally in the same voice and style. Write only 1-2 sentences. Do NOT repeat the original text. Only output the continuation.\n\nText: "${text}"`,
+    `You are a writing assistant. Read the following sentences to understand the voice and thought direction. Continue writing from exactly where it left off. Write exactly one natural sentence. Do NOT repeat the existing text. Do NOT add any preamble.\n\nContext:\n"${text}"`,
   expand: (text) =>
-    `You are a writing assistant. Expand this into 2 rich, detailed paragraphs while maintaining the same author voice and style. Do NOT repeat the original text. Only output the expansion.\n\nText: "${text}"`,
+    `You are a writing assistant. Take this rough idea or bullet point and build it into a full, detailed, and rich paragraph. Maintain the author's voice. Do NOT add any preamble or explanation.\n\nSeed text:\n"${text}"`,
   shorten: (text) =>
-    `You are a writing assistant. Rewrite this in roughly half the words while keeping the core idea intact. Do NOT add any preamble. Only output the shortened version.\n\nText: "${text}"`,
+    `You are a writing assistant. Strip this text down to its core idea in roughly half the words. Remove filler but keep the most important details and original tone. Do NOT add any preamble.\n\nOriginal text:\n"${text}"`,
   rewrite_professional: (text) =>
-    `Rewrite the following text in a professional, formal tone. Do NOT add any preamble or explanation. Only output the rewritten text.\n\nText: "${text}"`,
+    `Rewrite the following text in a professional, formal, and polished tone. Do NOT add any preamble or explanation. Only output the rewritten text.\n\nText: "${text}"`,
   rewrite_casual: (text) =>
-    `Rewrite the following text in a casual, friendly, conversational tone. Do NOT add any preamble or explanation. Only output the rewritten text.\n\nText: "${text}"`,
+    `Rewrite the following text in a casual, friendly, and conversational tone. Do NOT add any preamble or explanation. Only output the rewritten text.\n\nText: "${text}"`,
   rewrite_witty: (text) =>
     `Rewrite the following text with dry wit, humor, and personality. Do NOT add any preamble or explanation. Only output the rewritten text.\n\nText: "${text}"`,
 };

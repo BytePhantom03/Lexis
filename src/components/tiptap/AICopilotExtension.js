@@ -51,11 +51,14 @@ const AICopilotExtension = Extension.create({
                 // Get cursor coordinates for positioning the palette
                 const coords = view.coordsAtPos(safeFrom);
 
-                // Get the current paragraph text (for context)
+                // Get the current paragraph and some previous context
                 const resolvedPos = view.state.doc.resolve(
                   Math.min(safeFrom, view.state.doc.content.size)
                 );
-                const paragraphText = resolvedPos.parent.textContent || "";
+                
+                // Get up to 500 characters of preceding text across paragraphs for context
+                const contextStart = Math.max(0, safeFrom - 500);
+                const paragraphText = view.state.doc.textBetween(contextStart, safeFrom, "\n", "\ufffc");
 
                 extension.options.onActivate({
                   coords: {

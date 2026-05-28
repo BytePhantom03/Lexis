@@ -4,17 +4,17 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Sparkles,
-  Wand2,
   Shrink,
   Expand,
-  PenLine,
+  RefreshCcw,
   Briefcase,
   Coffee,
   SmilePlus,
   Loader2,
   Check,
   X,
-  ChevronRight,
+  Play,
+  CornerDownLeft,
 } from "lucide-react";
 import { streamAIResponse } from "./aiService";
 
@@ -22,26 +22,30 @@ const COMMANDS = [
   {
     id: "autocomplete",
     label: "Autocomplete",
-    description: "Continue writing naturally",
-    icon: Wand2,
+    description: "Continue writing from here",
+    icon: Sparkles,
+    shortcutIcon: CornerDownLeft, // Enter key symbol
   },
   {
     id: "expand",
     label: "Expand",
-    description: "Make it longer and richer",
+    description: "Elaborate this paragraph",
     icon: Expand,
+    shortcutText: "E",
   },
   {
     id: "shorten",
     label: "Shorten",
-    description: "Cut it down to the essentials",
+    description: "Make it more concise",
     icon: Shrink,
+    shortcutText: "S",
   },
   {
     id: "rewrite",
     label: "Rewrite Tone",
     description: "Change the voice",
-    icon: PenLine,
+    icon: RefreshCcw,
+    shortcutIcon: Play, // Triangle symbol for submenu
     submenu: [
       {
         id: "rewrite_professional",
@@ -128,6 +132,20 @@ export default function AIPalette({
       const currentIndex = showSubmenu ? subIndex : selectedIndex;
       const setIndex = showSubmenu ? setSubIndex : setSelectedIndex;
 
+      // Quick shortcuts
+      if (!showSubmenu) {
+        if (e.key.toLowerCase() === "e") {
+          e.preventDefault();
+          executeCommand("expand");
+          return;
+        }
+        if (e.key.toLowerCase() === "s") {
+          e.preventDefault();
+          executeCommand("shorten");
+          return;
+        }
+      }
+
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
@@ -182,7 +200,7 @@ export default function AIPalette({
       return;
     }
 
-    const isRewrite = commandId.startsWith("rewrite_");
+    const isRewrite = commandId.startsWith("rewrite_") || commandId === "shorten";
     setActiveCommand(commandId);
     setIsStreaming(true);
     setStreamedText("");
@@ -198,20 +216,20 @@ export default function AIPalette({
       let fullText = "";
 
       if (!isRewrite) {
-        // For autocomplete/expand/shorten — stream directly into editor
+        // For autocomplete/expand — stream directly into editor
         await streamAIResponse(
           commandId,
           paragraphText,
           (chunk) => {
             fullText += chunk;
             setStreamedText(fullText);
-            // Insert at cursor position
+            // Insert at cursor position with addToHistory so Ctrl+Z works nicely
             editor.chain().focus().insertContent(chunk).run();
           },
           abortController.signal
         );
       } else {
-        // For rewrites — collect the full text first, then show diff
+        // For rewrites and shorten — collect the full text first, then show diff
         await streamAIResponse(
           commandId,
           paragraphText,
@@ -267,54 +285,49 @@ export default function AIPalette({
     return (
       <div
         ref={paletteRef}
-        className="fixed z-[9999] w-[420px] max-w-[90vw] bg-white dark:bg-[#1c1c1f] border border-[#e8e8ec] dark:border-[#2a2a2e] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
+        className="fixed z-[9999] w-[460px] max-w-[90vw] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
         style={{ top: `${top}px`, left: `${left}px` }}
       >
-        {/* Header */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#e8e8ec] dark:border-[#2a2a2e] bg-gradient-to-r from-indigo-50 to-violet-50 dark:from-indigo-950/30 dark:to-violet-950/30">
-          <Sparkles size={16} className="text-indigo-500" />
-          <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-            AI Rewrite
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#2d2e3d] bg-[#15151c]">
+          <Sparkles size={16} className="text-[#9d7cf7]" />
+          <span className="text-xs font-semibold text-gray-300 tracking-wider">
+            AI REWRITE
           </span>
         </div>
 
-        {/* Diff content */}
         <div className="p-4 space-y-3 max-h-[300px] overflow-y-auto">
-          {/* Original */}
-          <div className="rounded-lg bg-red-50 dark:bg-red-950/20 p-3 border border-red-100 dark:border-red-900/30">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-1 block">
+          <div className="rounded-xl bg-[#2a1b1e] p-4 border border-[#3d2328]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#e57b85] mb-2 block">
               Original
             </span>
-            <p className="text-sm text-gray-500 dark:text-gray-400 line-through leading-relaxed">
+            <p className="text-sm text-[#b39ba0] line-through leading-relaxed">
               {originalText}
             </p>
           </div>
 
-          {/* Rewritten */}
-          <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/20 p-3 border border-emerald-100 dark:border-emerald-900/30">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-1 block">
+          <div className="rounded-xl bg-[#1b2a24] p-4 border border-[#233d31]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7be5b5] mb-2 block">
               Rewritten
             </span>
-            <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">
+            <p className="text-sm text-[#e0f2e9] leading-relaxed">
               {rewrittenText}
             </p>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2 p-3 border-t border-[#e8e8ec] dark:border-[#2a2a2e]">
+        <div className="flex items-center gap-2 p-3 border-t border-[#2d2e3d] bg-[#15151c]">
           <button
             onClick={handleAcceptRewrite}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg transition-colors cursor-pointer"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-[#2f8a5a] hover:bg-[#3ba36d] rounded-xl transition-colors cursor-pointer"
           >
-            <Check size={14} />
-            Accept
+            <Check size={16} />
+            Accept Changes
           </button>
           <button
             onClick={handleRejectRewrite}
-            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-[#2a2a2e] hover:bg-gray-200 dark:hover:bg-[#353538] rounded-lg transition-colors cursor-pointer"
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-gray-300 bg-[#2d2e3d] hover:bg-[#3d3e52] rounded-xl transition-colors cursor-pointer"
           >
-            <X size={14} />
+            <X size={16} />
             Discard
           </button>
         </div>
@@ -327,35 +340,31 @@ export default function AIPalette({
     return (
       <div
         ref={paletteRef}
-        className="fixed z-[9999] w-[280px] bg-white dark:bg-[#1c1c1f] border border-[#e8e8ec] dark:border-[#2a2a2e] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
+        className="fixed z-[9999] w-[300px] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
         style={{ top: `${top}px`, left: `${left}px` }}
       >
-        <div className="flex items-center gap-3 px-4 py-4">
-          <div className="relative">
-            <Loader2
-              size={18}
-              className="text-indigo-500 animate-spin"
-            />
-          </div>
+        <div className="flex items-center gap-4 px-5 py-5">
+          <Loader2
+            size={20}
+            className="text-[#9d7cf7] animate-spin"
+          />
           <div>
-            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+            <p className="text-sm font-medium text-gray-200">
               AI is writing...
             </p>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-gray-500 mt-0.5 capitalize">
               {activeCommand.replace("_", " ")}
             </p>
           </div>
           <button
             onClick={handleClose}
-            className="ml-auto p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-[#2a2a2e] transition-colors cursor-pointer"
+            className="ml-auto p-1.5 text-gray-500 hover:text-gray-300 rounded-full hover:bg-[#2d2e3d] transition-colors cursor-pointer"
           >
             <X size={14} />
           </button>
         </div>
-
-        {/* Mini progress bar */}
-        <div className="h-0.5 bg-gray-100 dark:bg-[#2a2a2e]">
-          <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 animate-pulse rounded-full w-2/3" />
+        <div className="h-0.5 bg-[#2d2e3d]">
+          <div className="h-full bg-gradient-to-r from-[#7a5ce0] to-[#b395ff] animate-pulse rounded-full w-2/3" />
         </div>
       </div>
     );
@@ -365,25 +374,26 @@ export default function AIPalette({
   return (
     <div
       ref={paletteRef}
-      className="fixed z-[9999] w-[260px] bg-white dark:bg-[#1c1c1f] border border-[#e8e8ec] dark:border-[#2a2a2e] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
+      className="fixed z-[9999] w-[320px] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
       style={{ top: `${top}px`, left: `${left}px` }}
     >
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-[#e8e8ec] dark:border-[#2a2a2e] bg-gradient-to-r from-indigo-50 to-violet-50 dark:from-indigo-950/30 dark:to-violet-950/30">
-        <Sparkles size={14} className="text-indigo-500" />
-        <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 tracking-wide">
-          AI COPILOT
+      <div className="flex items-center gap-2 px-4 py-3">
+        <Sparkles size={14} className="text-[#5b5b6b]" />
+        <span className="text-[11px] font-semibold text-[#5b5b6b] tracking-widest uppercase">
+          AI Commands
         </span>
       </div>
 
       {/* Commands list */}
-      <div className="py-1">
+      <div className="px-2 pb-2">
         {COMMANDS.map((cmd, index) => {
           const Icon = cmd.icon;
           const isSelected = selectedIndex === index && !showSubmenu;
+          const ShortcutIcon = cmd.shortcutIcon;
 
           return (
-            <div key={cmd.id} className="relative">
+            <div key={cmd.id} className="relative mb-1 last:mb-0">
               <button
                 onClick={() => {
                   if (cmd.submenu) {
@@ -398,44 +408,39 @@ export default function AIPalette({
                   setSelectedIndex(index);
                   if (!cmd.submenu) setShowSubmenu(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors cursor-pointer ${
+                className={`w-full flex items-center gap-3.5 px-3 py-3 text-left transition-colors cursor-pointer rounded-xl ${
                   isSelected
-                    ? "bg-indigo-50 dark:bg-indigo-950/30"
-                    : "hover:bg-gray-50 dark:hover:bg-[#252528]"
+                    ? "bg-[#28243d]"
+                    : "hover:bg-[#22222d]"
                 }`}
               >
-                <Icon
-                  size={16}
-                  className={
-                    isSelected
-                      ? "text-indigo-500"
-                      : "text-gray-400"
-                  }
-                />
+                <div className={`p-2 rounded-lg ${isSelected ? 'bg-[#3b3461] text-[#b395ff]' : 'bg-[#252630] text-[#717185]'}`}>
+                  <Icon size={18} />
+                </div>
+                
                 <div className="flex-1 min-w-0">
                   <p
-                    className={`text-sm font-medium ${
-                      isSelected
-                        ? "text-indigo-600 dark:text-indigo-400"
-                        : "text-gray-700 dark:text-gray-300"
+                    className={`text-sm font-semibold tracking-wide ${
+                      isSelected ? "text-white" : "text-gray-200"
                     }`}
                   >
                     {cmd.label}
                   </p>
-                  <p className="text-[11px] text-gray-400 truncate">
+                  <p className="text-[12px] text-[#7a7a8f] mt-0.5 truncate">
                     {cmd.description}
                   </p>
                 </div>
-                {cmd.submenu && (
-                  <ChevronRight size={14} className="text-gray-400" />
-                )}
+
+                <div className={`flex items-center justify-center w-5 h-5 rounded ${isSelected ? 'bg-[#1e1a30] text-[#7a7a8f]' : 'bg-[#1e1e26] text-[#5b5b6b]'}`}>
+                  {ShortcutIcon ? <ShortcutIcon size={12} /> : <span className="text-[10px] font-bold">{cmd.shortcutText}</span>}
+                </div>
               </button>
 
               {/* Submenu */}
               {cmd.submenu &&
                 showSubmenu &&
                 selectedIndex === index && (
-                  <div className="absolute left-full top-0 ml-1 w-[180px] bg-white dark:bg-[#1c1c1f] border border-[#e8e8ec] dark:border-[#2a2a2e] rounded-xl shadow-xl overflow-hidden animate-scale-in z-10">
+                  <div className="absolute left-full top-0 ml-2 w-[180px] bg-[#1a1b23] border border-[#2d2e3d] rounded-xl shadow-xl p-1.5 animate-scale-in z-10">
                     {cmd.submenu.map((sub, sIdx) => {
                       const SubIcon = sub.icon;
                       const isSubSelected = subIndex === sIdx;
@@ -445,27 +450,21 @@ export default function AIPalette({
                           key={sub.id}
                           onClick={() => executeCommand(sub.id)}
                           onMouseEnter={() => setSubIndex(sIdx)}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors cursor-pointer ${
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors cursor-pointer rounded-lg ${
                             isSubSelected
-                              ? "bg-indigo-50 dark:bg-indigo-950/30"
-                              : "hover:bg-gray-50 dark:hover:bg-[#252528]"
+                              ? "bg-[#28243d] text-white"
+                              : "hover:bg-[#22222d] text-gray-300"
                           }`}
                         >
                           <SubIcon
-                            size={14}
+                            size={16}
                             className={
                               isSubSelected
-                                ? "text-indigo-500"
-                                : "text-gray-400"
+                                ? "text-[#b395ff]"
+                                : "text-[#717185]"
                             }
                           />
-                          <span
-                            className={`text-sm font-medium ${
-                              isSubSelected
-                                ? "text-indigo-600 dark:text-indigo-400"
-                                : "text-gray-700 dark:text-gray-300"
-                            }`}
-                          >
+                          <span className="text-sm font-medium tracking-wide">
                             {sub.label}
                           </span>
                         </button>
@@ -479,10 +478,12 @@ export default function AIPalette({
       </div>
 
       {/* Footer hint */}
-      <div className="px-3 py-2 border-t border-[#e8e8ec] dark:border-[#2a2a2e]">
-        <p className="text-[10px] text-gray-400 text-center">
-          ↑↓ navigate · Enter select · Esc close
-        </p>
+      <div className="px-4 py-2.5 border-t border-[#2d2e3d] bg-[#15151c]">
+        <div className="flex items-center justify-between text-[11px] text-[#5b5b6b] font-mono">
+          <span className="flex items-center gap-1"><span className="text-[#7a7a8f]">↑↓</span> navigate</span>
+          <span className="flex items-center gap-1"><span className="text-[#7a7a8f]">↵</span> select</span>
+          <span className="flex items-center gap-1"><span className="text-[#7a7a8f]">esc</span> close</span>
+        </div>
       </div>
     </div>
   );
