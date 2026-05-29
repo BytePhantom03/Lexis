@@ -5,6 +5,7 @@ import { ImageUploader } from "./ui/ImageUploader";
 import Image from "@tiptap/extension-image";
 import AICopilotExtension from "./tiptap/AICopilotExtension";
 import AIPalette from "./tiptap/AIPalette";
+import VoiceButton from "./tiptap/VoiceButton";
 
 const Tiptap = ({ setHtml }) => {
 	// AI Copilot state
@@ -126,6 +127,11 @@ const Tiptap = ({ setHtml }) => {
 					className="px-3 py-1 rounded-xl bg-gray-200 dark:bg-gray-900">
 					↪ Redo
 				</button>
+
+				{/* Voice-to-Article button */}
+				<div className="flex items-center ml-1 pl-2 border-l border-gray-300 dark:border-gray-700">
+					<VoiceButton editor={editor} />
+				</div>
 
 				{/* AI Copilot hint */}
 				<div className="hidden sm:flex items-center gap-1.5 ml-2 pl-2 border-l border-gray-300 dark:border-gray-700">
