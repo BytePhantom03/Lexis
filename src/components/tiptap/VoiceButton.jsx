@@ -1,15 +1,22 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Mic, Loader2 } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Mic, Loader2, Sparkles, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import supabase from "../../config/supabaseClient";
 
 /**
- * VoiceButton — Real-time Web Speech API + Llama 3.3 cleanup
+ * VoiceButton — Real-time Web Speech API + Llama 3.3 cleanup + Review UI
  *
- * States: idle → recording → processing → idle
+ * States: idle → recording → processing → idle (with Review UI portal if processing succeeds)
  */
 const VoiceButton = ({ editor }) => {
 	const [state, setState] = useState("idle");
+	
+	// Review UI States
+	const [showDiff, setShowDiff] = useState(false);
+	const [cleanedText, setCleanedText] = useState("");
+	const [coords, setCoords] = useState(null);
+
 	const recognitionRef = useRef(null);
 	const startPosRef = useRef(null);
 	const rawTranscriptRef = useRef("");
@@ -142,30 +149,55 @@ const VoiceButton = ({ editor }) => {
 				return;
 			}
 
-			const cleaned_text = data?.cleaned_text;
+			const cleanResult = data?.cleaned_text;
 
-			if (cleaned_text) {
-				// Replace the raw live text with the perfectly formatted LLM text
-				if (startPosRef.current !== null && editor) {
-					editor
-						.chain()
-						.focus()
-						.setTextSelection({
-							from: startPosRef.current,
-							to: editor.state.selection.to,
-						})
-						.insertContent(cleaned_text)
-						.run();
+			if (cleanResult) {
+				// Calculate position for the popup
+				if (editor && editor.view) {
+					const domCoords = editor.view.coordsAtPos(editor.state.selection.to);
+					setCoords(domCoords);
 				}
-				toast.success("Voice transcribed and cleaned!");
+				
+				// Open the Review UI instead of auto-inserting
+				setCleanedText(cleanResult);
+				setShowDiff(true);
 			}
 		} catch (err) {
 			console.error("Voice fetch error:", err);
 			toast.error("Voice cleanup failed.");
 		} finally {
 			setState("idle");
-			startPosRef.current = null;
 		}
+	};
+
+	// ── Review Handlers ──────────────────────────────────────────────────
+	const handleAccept = () => {
+		if (startPosRef.current !== null && editor) {
+			editor
+				.chain()
+				.focus()
+				.setTextSelection({
+					from: startPosRef.current,
+					to: editor.state.selection.to,
+				})
+				.insertContent(cleanedText)
+				.run();
+		}
+		toast.success("Voice transcribed and cleaned!");
+		closeReview();
+	};
+
+	const handleDiscard = () => {
+		// Do nothing to the editor — keep the raw text exactly as it was typed out
+		toast.info("Kept original dictation.");
+		closeReview();
+	};
+
+	const closeReview = () => {
+		setShowDiff(false);
+		setCleanedText("");
+		startPosRef.current = null;
+		rawTranscriptRef.current = "";
 	};
 
 	const handleClick = () => {
@@ -173,50 +205,110 @@ const VoiceButton = ({ editor }) => {
 		if (state === "recording") stopRecording();
 	};
 
-	return (
-		<div className="relative flex items-center">
-			<button
-				type="button"
-				onClick={handleClick}
-				disabled={state === "processing"}
-				title={
-					state === "idle"
-						? "Voice to article"
-						: state === "recording"
-						? "Stop recording"
-						: "Cleaning up text..."
-				}
-				className={`
-					relative px-3 py-1 rounded-xl transition-all duration-300
-					${
-						state === "idle"
-							? "bg-gray-200 dark:bg-gray-900 hover:bg-gray-300 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
-							: state === "recording"
-							? "bg-red-500/15 dark:bg-red-500/20 text-red-600 dark:text-red-400 ring-2 ring-red-500/50"
-							: "bg-indigo-500/15 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 cursor-wait"
-					}
-				`}
-			>
-				<div className="flex items-center gap-1.5">
-					{state === "idle" && <Mic size={16} />}
-					{state === "recording" && (
-						<Mic size={16} className="animate-pulse" />
-					)}
-					{state === "processing" && (
-						<Loader2 size={16} className="animate-spin" />
-					)}
-					<span className="text-xs font-medium hidden sm:inline">
-						{state === "idle" && "Voice"}
-						{state === "recording" && "Stop"}
-						{state === "processing" && "Cleaning..."}
-					</span>
-				</div>
+	// ── Render ───────────────────────────────────────────────────────────
+	const overlayStyle = coords?.width 
+		? { top: `${coords.top - 10}px`, left: `${coords.left - 10}px`, width: `${coords.width + 20}px` } 
+		: { top: `${(coords?.bottom || 0) + 8}px`, left: `${coords?.left || 0}px` };
 
-				{state === "recording" && (
-					<span className="absolute inset-0 rounded-xl animate-ping bg-red-500/20 pointer-events-none" />
-				)}
-			</button>
-		</div>
+	return (
+		<>
+			<div className="relative flex items-center">
+				<button
+					type="button"
+					onClick={handleClick}
+					disabled={state === "processing"}
+					title={
+						state === "idle"
+							? "Voice to article"
+							: state === "recording"
+							? "Stop recording"
+							: "Cleaning up text..."
+					}
+					className={`
+						relative px-3 py-1 rounded-xl transition-all duration-300
+						${
+							state === "idle"
+								? "bg-gray-200 dark:bg-gray-900 hover:bg-gray-300 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+								: state === "recording"
+								? "bg-red-500/15 dark:bg-red-500/20 text-red-600 dark:text-red-400 ring-2 ring-red-500/50"
+								: "bg-indigo-500/15 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 cursor-wait"
+						}
+					`}
+				>
+					<div className="flex items-center gap-1.5">
+						{state === "idle" && <Mic size={16} />}
+						{state === "recording" && (
+							<Mic size={16} className="animate-pulse" />
+						)}
+						{state === "processing" && (
+							<Loader2 size={16} className="animate-spin" />
+						)}
+						<span className="text-xs font-medium hidden sm:inline">
+							{state === "idle" && "Voice"}
+							{state === "recording" && "Stop"}
+							{state === "processing" && "Cleaning..."}
+						</span>
+					</div>
+
+					{state === "recording" && (
+						<span className="absolute inset-0 rounded-xl animate-ping bg-red-500/20 pointer-events-none" />
+					)}
+				</button>
+			</div>
+
+			{/* Review UI Portal */}
+			{showDiff && cleanedText && createPortal(
+				<div
+					className="fixed z-[9999] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in max-w-2xl"
+					style={overlayStyle}
+					onMouseDown={(e) => e.stopPropagation()}
+					onClick={(e) => e.stopPropagation()}
+				>
+					<div className="flex items-center gap-2 px-4 py-3 border-b border-[#2d2e3d] bg-[#15151c]">
+						<Sparkles size={16} className="text-[#9d7cf7]" />
+						<span className="text-xs font-semibold text-gray-300 tracking-wider">
+							VOICE DICTATION — Review Grammar Check
+						</span>
+					</div>
+
+					<div className="flex flex-col sm:flex-row gap-3 p-3">
+						{/* Dimmed original with strikethrough */}
+						<div className="flex-1 rounded-xl bg-[#1a1b23] p-4 border border-[#2d2e3d]/50 opacity-60 overflow-y-auto max-h-[300px]">
+							<p className="text-sm text-[#7a7a8f] line-through leading-relaxed">
+								{rawTranscriptRef.current}
+							</p>
+						</div>
+
+						{/* Highlighted new version */}
+						<div className="flex-1 rounded-xl bg-[#28243d] p-4 border border-[#483d8b] shadow-inner overflow-y-auto max-h-[300px]">
+							<p className="text-sm text-[#e2d9ff] leading-relaxed">
+								{cleanedText}
+							</p>
+						</div>
+					</div>
+
+					<div className="flex items-center gap-2 p-3 border-t border-[#2d2e3d] bg-[#15151c]">
+						<button
+							type="button"
+							onClick={handleAccept}
+							className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-[#6b4cde] hover:bg-[#7a5ce0] rounded-xl transition-colors cursor-pointer"
+						>
+							<Check size={16} />
+							Accept
+						</button>
+						<button
+							type="button"
+							onClick={handleDiscard}
+							className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-gray-300 bg-[#2d2e3d] hover:bg-[#3d3e52] rounded-xl transition-colors cursor-pointer"
+						>
+							<X size={16} />
+							Keep Original
+						</button>
+					</div>
+				</div>,
+				document.body
+			)}
+		</>
 	);
 };
 
