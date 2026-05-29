@@ -47,12 +47,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Parse JSON body containing base64-encoded audio
-    const { audio_base64, mime_type } = await req.json();
+    // Parse JSON body containing raw_text
+    const body = await req.json();
+    const rawText = body?.raw_text;
 
-    if (!audio_base64) {
+    if (!rawText || typeof rawText !== "string" || rawText.trim().length === 0) {
       return new Response(
-        JSON.stringify({ error: "No audio data provided" }),
+        JSON.stringify({ error: "No raw_text provided or text is empty" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -60,83 +61,8 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Decode base64 to binary
-    const binaryString = atob(audio_base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-
-    // Validate file size — reject over 10MB (~20 min of speech)
-    if (bytes.byteLength > 10 * 1024 * 1024) {
-      return new Response(
-        JSON.stringify({
-          error: "Audio file too large. Maximum 10MB (about 20 minutes).",
-        }),
-        {
-          status: 413,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Create a File object from the decoded bytes for the Whisper API
-    const audioFile = new File([bytes], "recording.webm", {
-      type: mime_type || "audio/webm",
-    });
-
-    // ── Stage 4: Whisper transcription via Groq ──────────────────────────
-    const whisperFormData = new FormData();
-    whisperFormData.append("file", audioFile, "recording.webm");
-    whisperFormData.append("model", "whisper-large-v3-turbo");
-    whisperFormData.append("response_format", "text");
-    whisperFormData.append("language", "en");
-
-    const whisperResponse = await fetch(
-      "https://api.groq.com/openai/v1/audio/transcriptions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${GROQ_API_KEY}`,
-        },
-        body: whisperFormData,
-      }
-    );
-
-    if (!whisperResponse.ok) {
-      const errText = await whisperResponse.text();
-      console.error("Whisper API error:", whisperResponse.status, errText);
-      return new Response(
-        JSON.stringify({
-          error: "Transcription failed",
-          details: errText,
-        }),
-        {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const rawTranscript = await whisperResponse.text();
-
-    // If Whisper returned nothing useful
-    if (!rawTranscript || rawTranscript.trim().length === 0) {
-      return new Response(
-        JSON.stringify({
-          error: "No speech detected",
-          raw_transcript: "",
-          cleaned_text: "",
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // ── Stage 5: LLM cleanup pass via Llama 3.3 ─────────────────────────
-    const cleanupPrompt = CLEANUP_PROMPT.replace("{transcript}", rawTranscript);
+    // ── LLM cleanup pass via Llama 3.3 ─────────────────────────
+    const cleanupPrompt = CLEANUP_PROMPT.replace("{transcript}", rawText);
 
     const cleanupResponse = await fetch(
       "https://api.groq.com/openai/v1/chat/completions",
@@ -161,8 +87,8 @@ Deno.serve(async (req: Request) => {
       // Fallback: return raw transcript without cleanup
       return new Response(
         JSON.stringify({
-          raw_transcript: rawTranscript.trim(),
-          cleaned_text: rawTranscript.trim(),
+          raw_transcript: rawText.trim(),
+          cleaned_text: rawText.trim(),
           cleanup_failed: true,
         }),
         {
@@ -174,11 +100,11 @@ Deno.serve(async (req: Request) => {
 
     const cleanupData = await cleanupResponse.json();
     const cleanedText =
-      cleanupData.choices?.[0]?.message?.content?.trim() || rawTranscript.trim();
+      cleanupData.choices?.[0]?.message?.content?.trim() || rawText.trim();
 
     return new Response(
       JSON.stringify({
-        raw_transcript: rawTranscript.trim(),
+        raw_transcript: rawText.trim(),
         cleaned_text: cleanedText,
       }),
       {

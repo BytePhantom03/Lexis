@@ -4,169 +4,112 @@ import { toast } from "sonner";
 import supabase from "../../config/supabaseClient";
 
 /**
- * VoiceButton — Tiptap toolbar button for voice-to-article dictation.
+ * VoiceButton — Real-time Web Speech API + Llama 3.3 cleanup
  *
  * States: idle → recording → processing → idle
- *
- * Flow:
- *   1. User taps mic → browser requests mic permission → MediaRecorder starts
- *   2. User taps again → recording stops → audio blob sent to edge function
- *   3. Edge function runs Whisper (transcription) + Llama (cleanup)
- *   4. Cleaned text inserted into Tiptap at cursor position
  */
 const VoiceButton = ({ editor }) => {
-	const [state, setState] = useState("idle"); // idle | recording | processing
-	const recorderRef = useRef(null);
-	const streamRef = useRef(null);
-	const chunksRef = useRef([]);
-	const canvasRef = useRef(null);
-	const analyserRef = useRef(null);
-	const animFrameRef = useRef(null);
+	const [state, setState] = useState("idle");
+	const recognitionRef = useRef(null);
+	const startPosRef = useRef(null);
+	const rawTranscriptRef = useRef("");
 
-	// Clean up on unmount — release mic if still active
+	// Initialize Web Speech API
 	useEffect(() => {
+		const SpeechRecognition =
+			window.SpeechRecognition || window.webkitSpeechRecognition;
+
+		if (!SpeechRecognition) {
+			toast.error("Voice dictation is not supported in this browser.");
+			return;
+		}
+
+		const recognition = new SpeechRecognition();
+		recognition.continuous = true;
+		recognition.interimResults = true;
+		recognition.lang = "en-US";
+
+		recognition.onresult = (event) => {
+			if (!editor) return;
+
+			let transcript = "";
+			for (let i = 0; i < event.results.length; i++) {
+				transcript += event.results[i][0].transcript;
+			}
+
+			// Save the raw text for the LLM cleanup later
+			rawTranscriptRef.current = transcript;
+
+			// Live insert into Tiptap
+			if (startPosRef.current !== null) {
+				// Select everything we've injected so far and overwrite it with the latest interim text
+				editor
+					.chain()
+					.focus()
+					.setTextSelection({
+						from: startPosRef.current,
+						to: editor.state.selection.to,
+					})
+					.insertContent(transcript)
+					.run();
+			}
+		};
+
+		recognition.onerror = (event) => {
+			console.error("Speech recognition error:", event.error);
+			if (event.error !== "no-speech") {
+				toast.error(`Mic error: ${event.error}`);
+				setState("idle");
+			}
+		};
+
+		recognitionRef.current = recognition;
+
 		return () => {
-			if (streamRef.current) {
-				streamRef.current.getTracks().forEach((t) => t.stop());
-			}
-			if (animFrameRef.current) {
-				cancelAnimationFrame(animFrameRef.current);
+			if (recognitionRef.current) {
+				recognitionRef.current.stop();
 			}
 		};
-	}, []);
+	}, [editor]);
 
-	// ── Waveform visualiser ──────────────────────────────────────────────
-	const drawWaveform = useCallback(() => {
-		const canvas = canvasRef.current;
-		const analyser = analyserRef.current;
-		if (!canvas || !analyser) return;
+	const startRecording = useCallback(() => {
+		if (!recognitionRef.current || !editor) return;
 
-		const ctx = canvas.getContext("2d");
-		const bufferLength = analyser.frequencyBinCount;
-		const dataArray = new Uint8Array(bufferLength);
-
-		const draw = () => {
-			animFrameRef.current = requestAnimationFrame(draw);
-			analyser.getByteFrequencyData(dataArray);
-
-			ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-			const barCount = 16;
-			const barWidth = canvas.width / barCount - 1;
-			const step = Math.floor(bufferLength / barCount);
-
-			for (let i = 0; i < barCount; i++) {
-				const value = dataArray[i * step];
-				const barHeight = (value / 255) * canvas.height * 0.85;
-				const x = i * (barWidth + 1);
-				const y = canvas.height - barHeight;
-
-				// Gradient from indigo → purple
-				const gradient = ctx.createLinearGradient(x, y, x, canvas.height);
-				gradient.addColorStop(0, "#818cf8");
-				gradient.addColorStop(1, "#a78bfa");
-				ctx.fillStyle = gradient;
-
-				ctx.beginPath();
-				ctx.roundRect(x, y, barWidth, barHeight, 1);
-				ctx.fill();
-			}
-		};
-
-		draw();
-	}, []);
-
-	// ── Start recording ──────────────────────────────────────────────────
-	const startRecording = useCallback(async () => {
 		try {
-			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-			streamRef.current = stream;
+			// Save the exact cursor position where the dictation starts
+			const { state: editorState } = editor;
+			startPosRef.current = editorState.selection
+				? editorState.selection.to
+				: editorState.doc.content.size;
 
-			// Set up analyser for waveform
-			const audioCtx = new AudioContext();
-			const source = audioCtx.createMediaStreamSource(stream);
-			const analyser = audioCtx.createAnalyser();
-			analyser.fftSize = 256;
-			source.connect(analyser);
-			analyserRef.current = analyser;
-
-			// Determine best mimeType
-			const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-				? "audio/webm;codecs=opus"
-				: "audio/webm";
-
-			const recorder = new MediaRecorder(stream, { mimeType });
-			chunksRef.current = [];
-
-			recorder.ondataavailable = (e) => {
-				if (e.data.size > 0) chunksRef.current.push(e.data);
-			};
-
-			recorder.onstop = async () => {
-				// Package chunks into a single blob
-				const audioBlob = new Blob(chunksRef.current, { type: mimeType });
-
-				// Release mic immediately
-				stream.getTracks().forEach((t) => t.stop());
-				streamRef.current = null;
-
-				// Stop waveform animation
-				if (animFrameRef.current) {
-					cancelAnimationFrame(animFrameRef.current);
-					animFrameRef.current = null;
-				}
-
-				// Check size — reject over 10MB
-				if (audioBlob.size > 10 * 1024 * 1024) {
-					toast.error("Recording too long. Keep it under 5 minutes.");
-					setState("idle");
-					return;
-				}
-
-				setState("processing");
-				await sendToEdgeFunction(audioBlob);
-			};
-
-			recorder.start(250); // chunks every 250ms
-			recorderRef.current = recorder;
+			rawTranscriptRef.current = "";
+			recognitionRef.current.start();
 			setState("recording");
-
-			// Start waveform drawing
-			drawWaveform();
 		} catch (err) {
-			console.error("Mic access error:", err);
-			if (err.name === "NotAllowedError") {
-				toast.error("Microphone permission denied. Please allow mic access.");
-			} else {
-				toast.error("Could not access microphone.");
-			}
+			console.error(err);
 			setState("idle");
 		}
-	}, [drawWaveform]);
+	}, [editor]);
 
-	// ── Stop recording ───────────────────────────────────────────────────
-	const stopRecording = useCallback(() => {
-		if (recorderRef.current && recorderRef.current.state === "recording") {
-			recorderRef.current.stop();
+	const stopRecording = useCallback(async () => {
+		if (!recognitionRef.current) return;
+
+		recognitionRef.current.stop();
+		setState("processing");
+
+		const finalRawText = rawTranscriptRef.current;
+
+		if (!finalRawText || finalRawText.trim().length === 0) {
+			toast.error("No speech detected.");
+			setState("idle");
+			return;
 		}
+
+		await sendToEdgeFunction(finalRawText);
 	}, []);
 
-	// ── Convert blob to base64 ───────────────────────────────────────────
-	const blobToBase64 = (blob) => {
-		return new Promise((resolve, reject) => {
-			const reader = new FileReader();
-			reader.onloadend = () => {
-				// Remove the data URL prefix (e.g., "data:audio/webm;base64,")
-				const base64 = reader.result.split(",")[1];
-				resolve(base64);
-			};
-			reader.onerror = reject;
-			reader.readAsDataURL(blob);
-		});
-	};
-
-	// ── Send audio to Supabase Edge Function ─────────────────────────────
-	const sendToEdgeFunction = async (audioBlob) => {
+	// ── Send raw text to Supabase Edge Function for Llama 3.3 cleanup ────
+	const sendToEdgeFunction = async (rawText) => {
 		try {
 			const {
 				data: { session },
@@ -178,78 +121,49 @@ const VoiceButton = ({ editor }) => {
 				return;
 			}
 
-			// Convert blob to base64 and send as JSON — avoids CORS preflight
-			const audioBase64 = await blobToBase64(audioBlob);
-
 			const { data, error } = await supabase.functions.invoke(
 				"voice-to-article",
 				{
-					body: {
-						audio_base64: audioBase64,
-						mime_type: audioBlob.type || "audio/webm",
-					},
+					body: { raw_text: rawText },
 				}
 			);
 
 			if (error) {
 				console.error("Edge function error:", error);
-				toast.error("Voice transcription failed. Try again.");
+				toast.error("AI cleanup failed. Keeping raw text.");
 				setState("idle");
 				return;
 			}
 
 			const cleaned_text = data?.cleaned_text;
 
-			if (!cleaned_text) {
-				toast.error("No speech detected. Try speaking louder.");
-				setState("idle");
-				return;
+			if (cleaned_text) {
+				// Replace the raw live text with the perfectly formatted LLM text
+				if (startPosRef.current !== null && editor) {
+					editor
+						.chain()
+						.focus()
+						.setTextSelection({
+							from: startPosRef.current,
+							to: editor.state.selection.to,
+						})
+						.insertContent(cleaned_text)
+						.run();
+				}
+				toast.success("Voice transcribed and cleaned!");
 			}
-
-			insertIntoTiptap(cleaned_text);
-			toast.success("Voice inserted successfully!");
 		} catch (err) {
 			console.error("Voice fetch error:", err);
-			toast.error("Voice failed, try again.");
+			toast.error("Voice cleanup failed.");
 		} finally {
 			setState("idle");
+			startPosRef.current = null;
 		}
 	};
 
-	// ── Insert cleaned text into Tiptap at cursor ────────────────────────
-	const insertIntoTiptap = (cleanedText) => {
-		if (!editor) {
-			console.error("Voice: editor instance not available");
-			return;
-		}
-
-		if (!cleanedText) {
-			console.error("Voice: invalid cleaned_text", cleanedText);
-			return;
-		}
-
-		console.log("Voice: inserting text into editor:", cleanedText);
-
-		// Tiptap natively handles plain text with newlines by creating paragraphs.
-		// We insert it directly. If the editor lost focus, we insert at the end.
-		const { state } = editor;
-		const position = state.selection ? state.selection.to : state.doc.content.size;
-
-		editor
-			.chain()
-			.focus()
-			.insertContentAt(position, cleanedText)
-			.run();
-	};
-
-	// ── Click handler ────────────────────────────────────────────────────
 	const handleClick = () => {
-		if (state === "idle") {
-			setState("initializing");
-			startRecording();
-		}
+		if (state === "idle") startRecording();
 		if (state === "recording") stopRecording();
-		// processing / initializing states = button disabled, no action
 	};
 
 	return (
@@ -257,15 +171,13 @@ const VoiceButton = ({ editor }) => {
 			<button
 				type="button"
 				onClick={handleClick}
-				disabled={state === "processing" || state === "initializing"}
+				disabled={state === "processing"}
 				title={
 					state === "idle"
 						? "Voice to article"
 						: state === "recording"
 						? "Stop recording"
-						: state === "initializing"
-						? "Starting microphone..."
-						: "Processing..."
+						: "Cleaning up text..."
 				}
 				className={`
 					relative px-3 py-1 rounded-xl transition-all duration-300
@@ -283,32 +195,20 @@ const VoiceButton = ({ editor }) => {
 					{state === "recording" && (
 						<Mic size={16} className="animate-pulse" />
 					)}
-					{(state === "processing" || state === "initializing") && (
+					{state === "processing" && (
 						<Loader2 size={16} className="animate-spin" />
 					)}
 					<span className="text-xs font-medium hidden sm:inline">
 						{state === "idle" && "Voice"}
 						{state === "recording" && "Stop"}
-						{state === "initializing" && "Starting"}
-						{state === "processing" && "Processing"}
+						{state === "processing" && "Cleaning..."}
 					</span>
 				</div>
 
-				{/* Pulsing ring animation when recording */}
 				{state === "recording" && (
 					<span className="absolute inset-0 rounded-xl animate-ping bg-red-500/20 pointer-events-none" />
 				)}
 			</button>
-
-			{/* Waveform canvas — only visible while recording */}
-			{state === "recording" && (
-				<canvas
-					ref={canvasRef}
-					width={80}
-					height={28}
-					className="ml-2 rounded-md"
-				/>
-			)}
 		</div>
 	);
 };
