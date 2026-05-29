@@ -2,6 +2,7 @@ Welcome to **Lexis** — a modern blogging platform where writing feels fast, re
 
 With Lexis you can:
 - Write rich articles (Tiptap) 
+- Use AI Voice Dictation & AI Copilot to write faster
 - Discover posts via feeds + search 
 - Like, comment, and follow authors
 - Build your profile + vibe 
@@ -16,6 +17,8 @@ With Lexis you can:
 
 ## Features ✨
 
+- AI-Powered Voice Dictation (Live preview + Llama 3.3 Grammar Cleanup)
+- AI Copilot (Autocomplete, expand, shorten, rewrite tone)
 - Rich text article editor
 - Authentication system
 - Follow/unfollow users
@@ -142,6 +145,8 @@ Open that URL in your browser  to access the application.
 
 ### If you’re here to write ✍️
 - Publish with a rich-text editor 
+- Dictate articles with real-time AI transcription
+- Enhance text with the AI Copilot (type `/ai`)
 - Add images 
 - Track engagement
 
