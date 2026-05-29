@@ -20,6 +20,15 @@ const VoiceButton = ({ editor }) => {
 	const recognitionRef = useRef(null);
 	const startPosRef = useRef(null);
 	const rawTranscriptRef = useRef("");
+	const silenceTimeoutRef = useRef(null);
+	
+	// Helper to clear the silence timeout
+	const clearSilenceTimeout = () => {
+		if (silenceTimeoutRef.current) {
+			clearTimeout(silenceTimeoutRef.current);
+			silenceTimeoutRef.current = null;
+		}
+	};
 
 	// Initialize Web Speech API
 	useEffect(() => {
@@ -60,6 +69,13 @@ const VoiceButton = ({ editor }) => {
 					.insertContent(transcript)
 					.run();
 			}
+
+			// Reset silence timeout because speech was detected
+			clearSilenceTimeout();
+			silenceTimeoutRef.current = setTimeout(() => {
+				if (recognitionRef.current) recognitionRef.current.stop();
+				stopRecording();
+			}, 5000);
 		};
 
 		recognition.onerror = (event) => {
@@ -68,11 +84,13 @@ const VoiceButton = ({ editor }) => {
 				toast.error(`Mic error: ${event.error}`);
 				setState("idle");
 			}
+			clearSilenceTimeout();
 		};
 
 		recognitionRef.current = recognition;
 
 		return () => {
+			clearSilenceTimeout();
 			if (recognitionRef.current) {
 				recognitionRef.current.stop();
 			}
@@ -92,15 +110,20 @@ const VoiceButton = ({ editor }) => {
 			rawTranscriptRef.current = "";
 			recognitionRef.current.start();
 			setState("recording");
+
+			// Start the 5-second silence timeout
+			clearSilenceTimeout();
+			silenceTimeoutRef.current = setTimeout(() => stopRecording(), 5000);
 		} catch (err) {
 			console.error(err);
 			setState("idle");
 		}
-	}, [editor]);
+	}, [editor]); // stopRecording is omitted here to avoid circular dependencies, it is used safely inside setTimeout.
 
 	const stopRecording = useCallback(async () => {
 		if (!recognitionRef.current) return;
-
+		
+		clearSilenceTimeout();
 		recognitionRef.current.stop();
 		setState("processing");
 
