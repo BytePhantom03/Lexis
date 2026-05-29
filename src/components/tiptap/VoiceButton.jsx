@@ -3,8 +3,6 @@ import { Mic, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import supabase from "../../config/supabaseClient";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-
 /**
  * VoiceButton — Tiptap toolbar button for voice-to-article dictation.
  *
@@ -153,6 +151,20 @@ const VoiceButton = ({ editor }) => {
 		}
 	}, []);
 
+	// ── Convert blob to base64 ───────────────────────────────────────────
+	const blobToBase64 = (blob) => {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onloadend = () => {
+				// Remove the data URL prefix (e.g., "data:audio/webm;base64,")
+				const base64 = reader.result.split(",")[1];
+				resolve(base64);
+			};
+			reader.onerror = reject;
+			reader.readAsDataURL(blob);
+		});
+	};
+
 	// ── Send audio to Supabase Edge Function ─────────────────────────────
 	const sendToEdgeFunction = async (audioBlob) => {
 		try {
@@ -166,29 +178,27 @@ const VoiceButton = ({ editor }) => {
 				return;
 			}
 
-			const formData = new FormData();
-			formData.append("audio", audioBlob, "recording.webm");
+			// Convert blob to base64 and send as JSON — avoids CORS preflight
+			const audioBase64 = await blobToBase64(audioBlob);
 
-			const res = await fetch(
-				`${SUPABASE_URL}/functions/v1/voice-to-article`,
+			const { data, error } = await supabase.functions.invoke(
+				"voice-to-article",
 				{
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${session.access_token}`,
+					body: {
+						audio_base64: audioBase64,
+						mime_type: audioBlob.type || "audio/webm",
 					},
-					body: formData,
 				}
 			);
 
-			if (!res.ok) {
-				const errBody = await res.text();
-				console.error("Edge function error:", res.status, errBody);
+			if (error) {
+				console.error("Edge function error:", error);
 				toast.error("Voice transcription failed. Try again.");
 				setState("idle");
 				return;
 			}
 
-			const { cleaned_text, raw_transcript } = await res.json();
+			const cleaned_text = data?.cleaned_text;
 
 			if (!cleaned_text) {
 				toast.error("No speech detected. Try speaking louder.");
@@ -208,26 +218,43 @@ const VoiceButton = ({ editor }) => {
 
 	// ── Insert cleaned text into Tiptap at cursor ────────────────────────
 	const insertIntoTiptap = (cleanedText) => {
-		if (!editor) return;
+		if (!editor) {
+			console.error("Voice: editor instance not available");
+			return;
+		}
 
-		const paragraphs = cleanedText
-			.split(/\n\n+/)
+		if (!cleanedText || typeof cleanedText !== "string") {
+			console.error("Voice: invalid cleaned_text", cleanedText);
+			return;
+		}
+
+		console.log("Voice: inserting text into editor:", cleanedText);
+
+		// Convert plain text with newlines into HTML paragraphs
+		const htmlContent = cleanedText
+			.split(/\n+/)
 			.map((p) => p.trim())
-			.filter((p) => p.length > 0);
+			.filter((p) => p.length > 0)
+			.map((p) => `<p>${p}</p>`)
+			.join("");
 
-		const content = paragraphs.map((text) => ({
-			type: "paragraph",
-			content: [{ type: "text", text }],
-		}));
+		if (!htmlContent) {
+			console.error("Voice: no paragraphs to insert");
+			return;
+		}
 
-		editor.chain().focus().insertContent(content).run();
+		// Insert at cursor and focus using HTML string
+		editor.chain().focus().insertContent(htmlContent).run();
 	};
 
 	// ── Click handler ────────────────────────────────────────────────────
 	const handleClick = () => {
-		if (state === "idle") startRecording();
+		if (state === "idle") {
+			setState("initializing");
+			startRecording();
+		}
 		if (state === "recording") stopRecording();
-		// processing state = button disabled, no action
+		// processing / initializing states = button disabled, no action
 	};
 
 	return (
@@ -235,12 +262,14 @@ const VoiceButton = ({ editor }) => {
 			<button
 				type="button"
 				onClick={handleClick}
-				disabled={state === "processing"}
+				disabled={state === "processing" || state === "initializing"}
 				title={
 					state === "idle"
 						? "Voice to article"
 						: state === "recording"
 						? "Stop recording"
+						: state === "initializing"
+						? "Starting microphone..."
 						: "Processing..."
 				}
 				className={`
@@ -259,12 +288,13 @@ const VoiceButton = ({ editor }) => {
 					{state === "recording" && (
 						<Mic size={16} className="animate-pulse" />
 					)}
-					{state === "processing" && (
+					{(state === "processing" || state === "initializing") && (
 						<Loader2 size={16} className="animate-spin" />
 					)}
 					<span className="text-xs font-medium hidden sm:inline">
 						{state === "idle" && "Voice"}
 						{state === "recording" && "Stop"}
+						{state === "initializing" && "Starting"}
 						{state === "processing" && "Processing"}
 					</span>
 				</div>

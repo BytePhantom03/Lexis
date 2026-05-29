@@ -4,8 +4,10 @@
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, accept",
+  "Access-Control-Max-Age": "86400",
 };
 
 const CLEANUP_PROMPT = `You are a transcription editor.
@@ -28,9 +30,9 @@ Raw transcript:
 Return only the cleaned text, no preamble.`;
 
 Deno.serve(async (req: Request) => {
-  // Handle CORS preflight
+  // Handle CORS preflight — must return 200 with all headers
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
@@ -45,13 +47,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Parse the multipart form data
-    const formData = await req.formData();
-    const audioFile = formData.get("audio");
+    // Parse JSON body containing base64-encoded audio
+    const { audio_base64, mime_type } = await req.json();
 
-    if (!audioFile || !(audioFile instanceof File)) {
+    if (!audio_base64) {
       return new Response(
-        JSON.stringify({ error: "No audio file provided" }),
+        JSON.stringify({ error: "No audio data provided" }),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -59,8 +60,15 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Decode base64 to binary
+    const binaryString = atob(audio_base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
     // Validate file size — reject over 10MB (~20 min of speech)
-    if (audioFile.size > 10 * 1024 * 1024) {
+    if (bytes.byteLength > 10 * 1024 * 1024) {
       return new Response(
         JSON.stringify({
           error: "Audio file too large. Maximum 10MB (about 20 minutes).",
@@ -71,6 +79,11 @@ Deno.serve(async (req: Request) => {
         }
       );
     }
+
+    // Create a File object from the decoded bytes for the Whisper API
+    const audioFile = new File([bytes], "recording.webm", {
+      type: mime_type || "audio/webm",
+    });
 
     // ── Stage 4: Whisper transcription via Groq ──────────────────────────
     const whisperFormData = new FormData();
