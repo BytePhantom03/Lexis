@@ -111,6 +111,13 @@ const VoiceButton = ({ editor }) => {
 	// ── Send raw text to Supabase Edge Function for Llama 3.3 cleanup ────
 	const sendToEdgeFunction = async (rawText) => {
 		try {
+			const userApiKey = localStorage.getItem("lexis_groq_api_key");
+			if (!userApiKey) {
+				toast.error("Please add your Groq API Key in Control Settings first.");
+				setState("idle");
+				return;
+			}
+
 			const {
 				data: { session },
 			} = await supabase.auth.getSession();
@@ -124,7 +131,7 @@ const VoiceButton = ({ editor }) => {
 			const { data, error } = await supabase.functions.invoke(
 				"voice-to-article",
 				{
-					body: { raw_text: rawText },
+					body: { raw_text: rawText, user_api_key: userApiKey },
 				}
 			);
 

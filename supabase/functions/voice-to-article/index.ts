@@ -36,20 +36,20 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
-    if (!GROQ_API_KEY) {
+    // Parse JSON body containing raw_text and user_api_key
+    const body = await req.json();
+    const rawText = body?.raw_text;
+    const userApiKey = body?.user_api_key;
+
+    if (!userApiKey) {
       return new Response(
-        JSON.stringify({ error: "GROQ_API_KEY not configured" }),
+        JSON.stringify({ error: "No user_api_key provided" }),
         {
-          status: 500,
+          status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
-
-    // Parse JSON body containing raw_text
-    const body = await req.json();
-    const rawText = body?.raw_text;
 
     if (!rawText || typeof rawText !== "string" || rawText.trim().length === 0) {
       return new Response(
@@ -69,7 +69,7 @@ Deno.serve(async (req: Request) => {
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${GROQ_API_KEY}`,
+          Authorization: `Bearer ${userApiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
