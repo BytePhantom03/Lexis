@@ -223,28 +223,23 @@ const VoiceButton = ({ editor }) => {
 			return;
 		}
 
-		if (!cleanedText || typeof cleanedText !== "string") {
+		if (!cleanedText) {
 			console.error("Voice: invalid cleaned_text", cleanedText);
 			return;
 		}
 
 		console.log("Voice: inserting text into editor:", cleanedText);
 
-		// Convert plain text with newlines into HTML paragraphs
-		const htmlContent = cleanedText
-			.split(/\n+/)
-			.map((p) => p.trim())
-			.filter((p) => p.length > 0)
-			.map((p) => `<p>${p}</p>`)
-			.join("");
+		// Tiptap natively handles plain text with newlines by creating paragraphs.
+		// We insert it directly. If the editor lost focus, we insert at the end.
+		const { state } = editor;
+		const position = state.selection ? state.selection.to : state.doc.content.size;
 
-		if (!htmlContent) {
-			console.error("Voice: no paragraphs to insert");
-			return;
-		}
-
-		// Insert at cursor and focus using HTML string
-		editor.chain().focus().insertContent(htmlContent).run();
+		editor
+			.chain()
+			.focus()
+			.insertContentAt(position, cleanedText)
+			.run();
 	};
 
 	// ── Click handler ────────────────────────────────────────────────────
