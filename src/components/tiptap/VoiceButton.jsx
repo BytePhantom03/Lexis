@@ -15,7 +15,6 @@ const VoiceButton = ({ editor }) => {
 	// Review UI States
 	const [showDiff, setShowDiff] = useState(false);
 	const [cleanedText, setCleanedText] = useState("");
-	const [coords, setCoords] = useState(null);
 
 	const recognitionRef = useRef(null);
 	const startPosRef = useRef(null);
@@ -175,12 +174,6 @@ const VoiceButton = ({ editor }) => {
 			const cleanResult = data?.cleaned_text;
 
 			if (cleanResult) {
-				// Calculate position for the popup
-				if (editor && editor.view) {
-					const domCoords = editor.view.coordsAtPos(editor.state.selection.to);
-					setCoords(domCoords);
-				}
-				
 				// Open the Review UI instead of auto-inserting
 				setCleanedText(cleanResult);
 				setShowDiff(true);
@@ -228,11 +221,6 @@ const VoiceButton = ({ editor }) => {
 		if (state === "recording") stopRecording();
 	};
 
-	// ── Render ───────────────────────────────────────────────────────────
-	const overlayStyle = coords?.width 
-		? { top: `${coords.top - 10}px`, left: `${coords.left - 10}px`, width: `${coords.width + 20}px` } 
-		: { top: `${(coords?.bottom || 0) + 8}px`, left: `${coords?.left || 0}px` };
-
 	return (
 		<>
 			<div className="relative flex items-center">
@@ -279,54 +267,57 @@ const VoiceButton = ({ editor }) => {
 				</button>
 			</div>
 
-			{/* Review UI Portal */}
+			{/* Review UI Modal Portal */}
 			{showDiff && cleanedText && createPortal(
-				<div
-					className="fixed z-[9999] bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in max-w-2xl"
-					style={overlayStyle}
-					onMouseDown={(e) => e.stopPropagation()}
-					onClick={(e) => e.stopPropagation()}
-				>
-					<div className="flex items-center gap-2 px-4 py-3 border-b border-[#2d2e3d] bg-[#15151c]">
-						<Sparkles size={16} className="text-[#9d7cf7]" />
-						<span className="text-xs font-semibold text-gray-300 tracking-wider">
-							VOICE DICTATION — Review Grammar Check
-						</span>
-					</div>
-
-					<div className="flex flex-col sm:flex-row gap-3 p-3">
-						{/* Dimmed original with strikethrough */}
-						<div className="flex-1 rounded-xl bg-[#1a1b23] p-4 border border-[#2d2e3d]/50 opacity-60 overflow-y-auto max-h-[300px]">
-							<p className="text-sm text-[#7a7a8f] line-through leading-relaxed">
-								{rawTranscriptRef.current}
-							</p>
+				<div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+					<div
+						className="w-full max-w-3xl bg-[#1a1b23] border border-[#2d2e3d] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
+						onMouseDown={(e) => e.stopPropagation()}
+						onClick={(e) => e.stopPropagation()}
+					>
+						<div className="flex items-center gap-2 px-4 py-3 border-b border-[#2d2e3d] bg-[#15151c]">
+							<Sparkles size={16} className="text-[#9d7cf7]" />
+							<span className="text-xs font-semibold text-gray-300 tracking-wider">
+								VOICE DICTATION — Review Grammar Check
+							</span>
 						</div>
 
-						{/* Highlighted new version */}
-						<div className="flex-1 rounded-xl bg-[#28243d] p-4 border border-[#483d8b] shadow-inner overflow-y-auto max-h-[300px]">
-							<p className="text-sm text-[#e2d9ff] leading-relaxed">
-								{cleanedText}
-							</p>
-						</div>
-					</div>
+						<div className="flex flex-col sm:flex-row gap-4 p-4">
+							{/* Dimmed original with strikethrough */}
+							<div className="flex-1 rounded-xl bg-[#1a1b23] p-4 border border-[#2d2e3d]/50 opacity-60 overflow-y-auto max-h-[40vh]">
+								<p className="text-sm font-medium text-gray-400 mb-2">Your Speech:</p>
+								<p className="text-sm text-[#7a7a8f] line-through leading-relaxed">
+									{rawTranscriptRef.current}
+								</p>
+							</div>
 
-					<div className="flex items-center gap-2 p-3 border-t border-[#2d2e3d] bg-[#15151c]">
-						<button
-							type="button"
-							onClick={handleAccept}
-							className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-white bg-[#6b4cde] hover:bg-[#7a5ce0] rounded-xl transition-colors cursor-pointer"
-						>
-							<Check size={16} />
-							Accept
-						</button>
-						<button
-							type="button"
-							onClick={handleDiscard}
-							className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-gray-300 bg-[#2d2e3d] hover:bg-[#3d3e52] rounded-xl transition-colors cursor-pointer"
-						>
-							<X size={16} />
-							Keep Original
-						</button>
+							{/* Highlighted new version */}
+							<div className="flex-1 rounded-xl bg-[#28243d] p-4 border border-[#483d8b] shadow-inner overflow-y-auto max-h-[40vh]">
+								<p className="text-sm font-medium text-[#b395ff] mb-2">AI Corrected:</p>
+								<p className="text-sm text-[#e2d9ff] leading-relaxed">
+									{cleanedText}
+								</p>
+							</div>
+						</div>
+
+						<div className="flex items-center justify-end gap-3 p-4 border-t border-[#2d2e3d] bg-[#15151c]">
+							<button
+								type="button"
+								onClick={handleDiscard}
+								className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-300 hover:text-white bg-transparent hover:bg-[#2d2e3d] rounded-lg transition-colors cursor-pointer"
+							>
+								<X size={16} />
+								Keep Original
+							</button>
+							<button
+								type="button"
+								onClick={handleAccept}
+								className="flex items-center gap-2 px-6 py-2 text-sm font-medium text-white bg-[#6b4cde] hover:bg-[#7a5ce0] rounded-lg transition-colors cursor-pointer"
+							>
+								<Check size={16} />
+								Accept Changes
+							</button>
+						</div>
 					</div>
 				</div>,
 				document.body
