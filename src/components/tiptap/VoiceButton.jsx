@@ -18,9 +18,10 @@ const VoiceButton = ({ editor }) => {
 
 	const recognitionRef = useRef(null);
 	const startPosRef = useRef(null);
+	const endPosRef = useRef(null);
 	const rawTranscriptRef = useRef("");
 	const silenceTimeoutRef = useRef(null);
-	
+
 	// Helper to clear the silence timeout
 	const clearSilenceTimeout = () => {
 		if (silenceTimeoutRef.current) {
@@ -56,17 +57,20 @@ const VoiceButton = ({ editor }) => {
 			rawTranscriptRef.current = transcript;
 
 			// Live insert into Tiptap
-			if (startPosRef.current !== null) {
-				// Select everything we've injected so far and overwrite it with the latest interim text
+			if (startPosRef.current !== null && endPosRef.current !== null) {
+				// Select exactly the block we previously inserted and overwrite it
 				editor
 					.chain()
 					.focus()
 					.setTextSelection({
 						from: startPosRef.current,
-						to: editor.state.selection.to,
+						to: endPosRef.current,
 					})
 					.insertContent(transcript)
 					.run();
+				
+				// Update endPosRef to the new cursor position after insertion
+				endPosRef.current = editor.state.selection.to;
 			}
 
 			// Reset silence timeout because speech was detected
@@ -102,9 +106,12 @@ const VoiceButton = ({ editor }) => {
 		try {
 			// Save the exact cursor position where the dictation starts
 			const { state: editorState } = editor;
-			startPosRef.current = editorState.selection
+			const initialPos = editorState.selection
 				? editorState.selection.to
 				: editorState.doc.content.size;
+			
+			startPosRef.current = initialPos;
+			endPosRef.current = initialPos;
 
 			rawTranscriptRef.current = "";
 			recognitionRef.current.start();
@@ -213,6 +220,7 @@ const VoiceButton = ({ editor }) => {
 		setShowDiff(false);
 		setCleanedText("");
 		startPosRef.current = null;
+		endPosRef.current = null;
 		rawTranscriptRef.current = "";
 	};
 
