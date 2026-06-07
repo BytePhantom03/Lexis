@@ -19,7 +19,6 @@ import { dataContext, userContext } from "../context/Context";
 import userDp from "../assets/user.png";
 import { cover_placeholder } from "../../public/resource";
 
-// Components
 import ImageUpdater from "./ImageUpdater";
 import ProfileImageUpdater from "./ProfileEditor";
 import UserProfilePosts from "./UserProfilePosts";
@@ -34,19 +33,16 @@ import { ReaderMenu } from "./ReaderMenu";
 import { EditProfileDetails } from "./EditProfileDetails";
 
 function Profile() {
-	// 1. Context and Params
 	const { username: urlUsername } = useParams();
 	const navigate = useNavigate();
 	const [currentUser] = useContext(userContext);
 	const [, , , , myFollowing] = useContext(dataContext);
-	// 2. Local State
 	const [profileData, setProfileData] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [failed, setFailed] = useState(false);
 	const [isFollow, setFollow] = useState(null);
 	const [ImgEditor, setImgEditor] = useState(false);
 	const [popup, SetPopup] = useState(false);
-	// UI States (Synced with profileData)
 	const [cover, setCover] = useState(cover_placeholder);
 	const [profileImg, setProfileImg] = useState(userDp);
 
@@ -54,8 +50,6 @@ function Profile() {
 	const [follower, setFollower] = useState(0);
 	const [following, setFollowing] = useState(0);
 	const [showFollow, setShowFollow] = useState(false);
-	// 3. Logic: Decide which data to load
-	//check for viewing other profile
 	let isMyProfile = useRef(true);
 	const [info] = useContext(userContext);
 
@@ -67,7 +61,6 @@ function Profile() {
 	const [name, setName] = useState();
 	const [about, setAbout] = useState();
 
-	//follow - unfollow function
 	async function handleFollow(e) {
 		e.stopPropagation();
 		setFollow(true);
@@ -116,7 +109,6 @@ function Profile() {
 		async function fetchProfile() {
 			setLoading(true);
 
-			// Scenario A: Viewing someone else's profile (or own profile via URL)
 			if (urlUsername) {
 				const res = await supabase
 					.from("UserTable")
@@ -135,7 +127,6 @@ function Profile() {
 					setFailed(false);
 				}
 			}
-			// Scenario B: Viewing own profile page (no username in URL)
 			else if (currentUser) {
 
 				setProfileData(currentUser);
@@ -155,7 +146,6 @@ function Profile() {
 		fetchProfile();
 	}, [urlUsername, currentUser]);
 
-	// 4. Update UI visuals when profileData changes
 	useEffect(() => {
 		function myFunction() {
 			if (profileData) {
@@ -166,7 +156,6 @@ function Profile() {
 		myFunction();
 	}, [profileData]);
 
-	// 5. Permission Check: Is this the logged-in user's own profile?
 	const isOwnProfile = currentUser?.user_id === profileData?.user_id;
 	useEffect(() => {
 		if (!urlUsername) {
@@ -174,7 +163,6 @@ function Profile() {
 			return;
 		}
 	}, [isOwnProfile, navigate]);
-	//check follow
 	useEffect(() => {
 		if (!isOwnProfile && !loading) {
 			function fun() {
@@ -189,7 +177,6 @@ function Profile() {
 		}
 	}, [isOwnProfile, loading]);
 
-	//load follower count
 	useEffect(() => {
 		if (!profileData) return;
 		async function loadFollower() {
@@ -210,7 +197,6 @@ function Profile() {
 		loadFollower();
 	}, [profileData]);
 
-	//load following count
 	useEffect(() => {
 		if (!profileData) return;
 		async function loadFollower() {

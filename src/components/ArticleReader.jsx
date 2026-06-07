@@ -141,15 +141,12 @@ function ArticleReader() {
 				temporaryCount.current = data?.comment_count;
 				setAuthor(data.UserTable);
 
-				//DB se like lena hai
 				setLike(data.likes ?? 0);
 
 				if (userId) {
 					if (likedArcticles.has(data.article_id)) {
-						//liked article loaded
 						setIsLiked(true);
 					} else {
-						//liked article not loaded
 						const { data: likeData } = await supabase
 							.from("LikesTable")
 							.select("article_id")
@@ -167,8 +164,7 @@ function ArticleReader() {
 						}
 					}
 				}
-				//Comment
-				const { data: commentData, error: commentError } = await supabase
+				let { data: commentData, error: commentError } = await supabase
 					.from("CommentTable")
 					.select("*,UserTable(username,profile_img)")
 					.eq("article_id", data.article_id);
@@ -324,20 +320,15 @@ function ArticleReader() {
 	}
 
 	async function handleLike() {
-		// 1. Safety checks
 		if (isLiking || !userInfo) return;
 		setIsLiking(true);
 
-		// Keep track of the current state before we change it
 		const wasLiked = isLiked;
 		const currentLikeCount = like ?? 0;
 
-		// 2. Update UI Immediately (Optimistic Update)
-		// This makes the app feel fast
 		setIsLiked(!wasLiked);
 		setLike(wasLiked ? currentLikeCount - 1 : currentLikeCount + 1);
 
-		// 3. Update the "LikesTable" (Add or Remove the record)
 		const { error: likeError } = await (wasLiked
 			? supabase
 					.from("LikesTable")
@@ -354,7 +345,6 @@ function ArticleReader() {
 			return;
 		}
 
-		// 4. Update the "ArticleTable" count securely via RPC
 		const { error: articleError } = await supabase.rpc("increment_article_likes", {
 			target_article_id: article?.article_id,
 			increment_by: wasLiked ? -1 : 1,
@@ -365,7 +355,6 @@ function ArticleReader() {
 			revertUI();
 		}
 
-		// Helper to reset UI if something goes wrong
 		function revertUI() {
 			setIsLiked(wasLiked);
 			setLike(currentLikeCount);
@@ -386,7 +375,6 @@ function ArticleReader() {
 				console.error("Error sharing:", err.message);
 			}
 		} else {
-			// 2. Fallback for unsupported browsers
 			alert("Web Share API not supported. You can copy the link manually!");
 		}
 	}

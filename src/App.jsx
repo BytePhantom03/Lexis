@@ -189,7 +189,6 @@ function App() {
 		}
 	}, []);
 
-	//load user data first time
 	useEffect(() => {
 		loadUser();
 	}, [loadUser, isOnline]);
@@ -214,8 +213,6 @@ function App() {
 		};
 	}, [loadUser]);
 
-	// theme handle
-
 	let theme = localStorage.getItem("theme");
 
 	const [isDark, setIsDark] = useState(localStorage.getItem("theme"));
@@ -237,7 +234,6 @@ function App() {
 		localStorage.setItem("theme", "light");
 	}
 
-	//check for pwa
 	let isPwa = localStorage.getItem("pwa");
 	if (isPwa == null) {
 		localStorage.setItem("pwa", true);

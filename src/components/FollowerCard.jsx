@@ -1,14 +1,12 @@
 import React, { useContext } from "react";
 
 import { userDp } from "../../public/avtar";
-import { NavLink } from "react-router-dom";
+import { NavLink, useParams } from "react-router-dom";
 import { dataContext, userContext } from "../context/Context";
 import supabase from "../config/supabaseClient";
 import { toast } from "sonner";
 
-function FollowerCard({ data,setLength }) {
-	//start
-	// 1. Context and Params
+function FollowerCard({ data, setLength }) {
 	const [currentUser] = useContext(userContext);
 	const [, , , , myFollowing, setMyFollowing] = useContext(dataContext);
 
@@ -52,7 +50,6 @@ function FollowerCard({ data,setLength }) {
 					return;
 				}
 			} else {
-				//setMyFollowing(temp);
 
 				setLength(p=>p-1)
 

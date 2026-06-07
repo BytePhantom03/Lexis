@@ -93,10 +93,8 @@ function ArticleCard({ article }) {
 		if (isLiking) return;
 		setIsLiking(true);
 
-		// Capture before any awaits to avoid drift
 		const wasLiked = isLiked;
 
-		// 1. Optimistic UI update
 		setLikes((prev) => (wasLiked ? prev - 1 : prev + 1));
 
 		setLikedArcticles((prev) => {
@@ -104,8 +102,6 @@ function ArticleCard({ article }) {
 			wasLiked ? newSet.delete(articleId) : newSet.add(articleId);
 			return newSet;
 		});
-
-		// 2. Update LikesTable first
 
 		const likeRes = wasLiked
 			? await supabase
@@ -119,7 +115,6 @@ function ArticleCard({ article }) {
 
 		if (likeRes.error) {
 			toast("❌ Error while liking");
-			// Full rollback
 			setLikes((prev) => (wasLiked ? prev + 1 : prev - 1));
 			setLikedArcticles((prev) => {
 				const newSet = new Set(prev);
@@ -130,7 +125,6 @@ function ArticleCard({ article }) {
 			return;
 		}
 
-		// 3. Update the ArticleTable count securely via RPC
 		const { error } = await supabase.rpc("increment_article_likes", {
 			target_article_id: articleId,
 			increment_by: wasLiked ? -1 : 1,

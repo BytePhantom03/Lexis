@@ -4,15 +4,10 @@ import { Mic, Loader2, Sparkles, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import supabase from "../../config/supabaseClient";
 
-/**
- * VoiceButton — Real-time Web Speech API + Llama 3.3 cleanup + Review UI
- *
- * States: idle → recording → processing → idle (with Review UI portal if processing succeeds)
- */
+
 const VoiceButton = ({ editor }) => {
 	const [state, setState] = useState("idle");
 	
-	// Review UI States
 	const [showDiff, setShowDiff] = useState(false);
 	const [cleanedText, setCleanedText] = useState("");
 
@@ -22,7 +17,6 @@ const VoiceButton = ({ editor }) => {
 	const rawTranscriptRef = useRef("");
 	const silenceTimeoutRef = useRef(null);
 
-	// Helper to clear the silence timeout
 	const clearSilenceTimeout = () => {
 		if (silenceTimeoutRef.current) {
 			clearTimeout(silenceTimeoutRef.current);
@@ -30,7 +24,6 @@ const VoiceButton = ({ editor }) => {
 		}
 	};
 
-	// Initialize Web Speech API
 	useEffect(() => {
 		const SpeechRecognition =
 			window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -53,12 +46,9 @@ const VoiceButton = ({ editor }) => {
 				transcript += event.results[i][0].transcript;
 			}
 
-			// Save the raw text for the LLM cleanup later
 			rawTranscriptRef.current = transcript;
 
-			// Live insert into Tiptap
 			if (startPosRef.current !== null && endPosRef.current !== null) {
-				// Select exactly the block we previously inserted and overwrite it
 				editor
 					.chain()
 					.focus()
@@ -68,12 +58,9 @@ const VoiceButton = ({ editor }) => {
 					})
 					.insertContent(transcript)
 					.run();
-				
-				// Update endPosRef to the new cursor position after insertion
 				endPosRef.current = editor.state.selection.to;
 			}
 
-			// Reset silence timeout because speech was detected
 			clearSilenceTimeout();
 			silenceTimeoutRef.current = setTimeout(() => {
 				if (recognitionRef.current) recognitionRef.current.stop();
@@ -104,7 +91,6 @@ const VoiceButton = ({ editor }) => {
 		if (!recognitionRef.current || !editor) return;
 
 		try {
-			// Save the exact cursor position where the dictation starts
 			const { state: editorState } = editor;
 			const initialPos = editorState.selection
 				? editorState.selection.to
@@ -117,14 +103,13 @@ const VoiceButton = ({ editor }) => {
 			recognitionRef.current.start();
 			setState("recording");
 
-			// Start the 5-second silence timeout
 			clearSilenceTimeout();
 			silenceTimeoutRef.current = setTimeout(() => stopRecording(), 5000);
 		} catch (err) {
 			console.error(err);
 			setState("idle");
 		}
-	}, [editor]); // stopRecording is omitted here to avoid circular dependencies, it is used safely inside setTimeout.
+	}, [editor]);
 
 	const stopRecording = useCallback(async () => {
 		if (!recognitionRef.current) return;
@@ -144,7 +129,6 @@ const VoiceButton = ({ editor }) => {
 		await sendToEdgeFunction(finalRawText);
 	}, []);
 
-	// ── Send raw text to Supabase Edge Function for Llama 3.3 cleanup ────
 	const sendToEdgeFunction = async (rawText) => {
 		try {
 			const userApiKey = localStorage.getItem("lexis_groq_api_key");
@@ -181,7 +165,6 @@ const VoiceButton = ({ editor }) => {
 			const cleanResult = data?.cleaned_text;
 
 			if (cleanResult) {
-				// Open the Review UI instead of auto-inserting
 				setCleanedText(cleanResult);
 				setShowDiff(true);
 			}
@@ -193,7 +176,6 @@ const VoiceButton = ({ editor }) => {
 		}
 	};
 
-	// ── Review Handlers ──────────────────────────────────────────────────
 	const handleAccept = () => {
 		if (startPosRef.current !== null && editor) {
 			editor
@@ -211,7 +193,6 @@ const VoiceButton = ({ editor }) => {
 	};
 
 	const handleDiscard = () => {
-		// Do nothing to the editor — keep the raw text exactly as it was typed out
 		toast.info("Kept original dictation.");
 		closeReview();
 	};
