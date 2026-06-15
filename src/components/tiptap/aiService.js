@@ -148,7 +148,10 @@ export async function evaluateArticleAI(text, category) {
   const apiKey = localStorage.getItem("lexis_groq_api_key") || import.meta.env.VITE_GROQ_API_KEY;
 
   if (!apiKey) {
-    throw new MissingKeyError("No API key");
+    return { 
+      aiScore: 0, 
+      aiTips: ["⚠️ AI features are offline. Please add your Groq API Key in the Settings panel or configure your deployment environment variables."] 
+    };
   }
 
   try {
@@ -201,7 +204,9 @@ export async function applyTipToText(text, tip) {
   const promptFn = PROMPTS["apply_tip"];
   const apiKey = localStorage.getItem("lexis_groq_api_key") || import.meta.env.VITE_GROQ_API_KEY;
 
-  if (!apiKey) return text;
+  if (!apiKey) {
+    throw new Error("Missing Groq API Key. Please add it in Settings.");
+  }
 
   try {
     let retries = 2;

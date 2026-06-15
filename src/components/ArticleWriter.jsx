@@ -57,7 +57,7 @@ function ArticleWriter({ setWriter }) {
 			toast.success("Tip applied successfully!");
 		} catch (error) {
 			console.error("Failed to apply tip", error);
-			toast.error("Failed to apply tip automatically.");
+			toast.error(error?.message || "Failed to apply tip automatically.");
 		} finally {
 			setIsApplyingTip(null);
 		}
