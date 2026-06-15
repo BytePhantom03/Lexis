@@ -17,6 +17,30 @@ const PROMPTS = {
     `You are an expert editor. Rewrite the following paragraph to read like the author is talking to a smart friend. Use contractions, make sentences shorter and punchier, make the first person feel natural. A single sentence can stand alone for emphasis. Keep conversational warmth without losing the core argument. Do NOT add any preamble. Only output the rewritten paragraph.\n\nContext:\n${context}\n\nParagraph to rewrite:\n"${text}"`,
   rewrite_witty: (text, context) =>
     `You are an expert editor. Rewrite the following paragraph. Keep the core idea but introduce one moment of dry observation, unexpected word choice, or ironic framing. This is NOT comedy writing or stand-up—just add a texture of personality that makes someone pause and re-read. Do NOT add any preamble. Only output the rewritten paragraph.\n\nContext:\n${context}\n\nParagraph to rewrite:\n"${text}"`,
+  evaluate_engagement: (text, category) =>
+    `You are an expert semantic evaluator for a blogging platform. Determine how relevant the following text is to the category: "${category}".
+Scoring rules:
+- 0-20: Text has absolutely no semantic overlap with the category, or is unformatted gibberish. (Output 0-10 if totally unrelated).
+- 40-60: Text partially touches on the category but is mostly generic or off-topic.
+- 80-100: Text is highly relevant to the category, insightful, and well-written.
+Return ONLY a single integer between 0 and 100. Do NOT return any other text or punctuation.
+
+Article Text:
+"${text}"`,
+  generate_tips: (text, category) =>
+    `You are an expert editor for a blogging platform. Read the following article text (Category: ${category}). Provide exactly 1 or 2 short, highly specific, and actionable writing tips to improve the content, tone, or hook. Do NOT provide structural tips like "add headings" or "write more words". Focus purely on the craft of writing and the ideas presented. Return ONLY a valid JSON array of strings. Do NOT return any markdown formatting, preamble, or explanation.
+Example output: ["Consider opening with a personal anecdote to hook the reader.", "Expand on your second point about interest rates to provide more value."]
+
+Article Text:
+"${text}"`,
+  apply_tip: (text, tip) =>
+    `You are an expert editor. You have been given an article and a specific piece of writing advice (a "tip"). Your task is to rewrite the article to incorporate this tip flawlessly. 
+Maintain the original author's voice and as much of the original HTML formatting as possible. DO NOT add any preamble, explanation, or markdown formatting blocks (like \`\`\`html). Output ONLY the rewritten HTML.
+
+Tip to Apply: "${tip}"
+
+Original Article HTML:
+"${text}"`,
 };
 
 export class MissingKeyError extends Error {
@@ -113,3 +137,133 @@ export async function streamAIResponse(command, text, contextWindow, onChunk, si
 
   return fullText;
 }
+
+/**
+ * Calls the Groq API to evaluate article engagement.
+ * Returns an integer score (0-100).
+ */
+export async function getAIEngagementScore(text, category) {
+  if (!text || text.length < 50) return 0;
+
+  const promptFn = PROMPTS["evaluate_engagement"];
+  const apiKey = localStorage.getItem("lexis_groq_api_key") || import.meta.env.VITE_GROQ_API_KEY;
+
+  if (!apiKey) {
+    throw new MissingKeyError("No API key");
+  }
+
+  const response = await fetch(GROQ_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "user", content: promptFn(text, category) }],
+      temperature: 0.1,
+      max_tokens: 10,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Groq API error (${response.status})`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content?.trim() || "0";
+  const score = parseInt(content.replace(/[^0-9]/g, ""), 10);
+  
+  if (isNaN(score)) return 0;
+  return Math.max(0, Math.min(100, score));
+}
+
+/**
+ * Calls the Groq API to generate actionable content tips.
+ * Returns an array of strings.
+ */
+export async function getAITips(text, category) {
+  if (!text || text.length < 50) return [];
+
+  const promptFn = PROMPTS["generate_tips"];
+  const apiKey = localStorage.getItem("lexis_groq_api_key") || import.meta.env.VITE_GROQ_API_KEY;
+
+  if (!apiKey) return [];
+
+  try {
+    const response = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: promptFn(text, category) }],
+        temperature: 0.4,
+        max_tokens: 150,
+      }),
+    });
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content?.trim() || "[]";
+    
+    // Parse the JSON array
+    let tips = JSON.parse(content);
+    if (!Array.isArray(tips)) {
+      // Fallback extraction if LLM failed strict JSON formatting
+      tips = content.split('\n').filter(line => line.length > 5).map(line => line.replace(/^-\s*|^\d+\.\s*|\[|\]|"/g, '').trim());
+    }
+    
+    return tips.slice(0, 2); // Max 2 tips
+  } catch (err) {
+    console.error("AI Tips extraction failed", err);
+    return [];
+  }
+}
+
+/**
+ * Calls the Groq API to rewrite text based on a specific tip.
+ * Returns the new HTML string.
+ */
+export async function applyTipToText(text, tip) {
+  if (!text || !tip) return text;
+
+  const promptFn = PROMPTS["apply_tip"];
+  const apiKey = localStorage.getItem("lexis_groq_api_key") || import.meta.env.VITE_GROQ_API_KEY;
+
+  if (!apiKey) return text;
+
+  try {
+    const response = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: promptFn(text, tip) }],
+        temperature: 0.3,
+        max_tokens: 2000,
+      }),
+    });
+
+    if (!response.ok) throw new Error("API Error");
+
+    const data = await response.json();
+    let content = data.choices?.[0]?.message?.content?.trim() || text;
+    
+    // Remove markdown code blocks if the AI accidentally added them
+    content = content.replace(/^```html\n?/i, "").replace(/^```\n?/i, "").replace(/\n?```$/i, "");
+    
+    return content;
+  } catch (err) {
+    console.error("AI apply tip failed", err);
+    return text;
+  }
+}
+
+

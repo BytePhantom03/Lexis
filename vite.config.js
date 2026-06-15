@@ -3,12 +3,21 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { viteStaticCopy } from "vite-plugin-static-copy";
 
 // https://vite.dev/config/
 export default defineConfig({
 	plugins: [
 		react(),
 		tailwindcss(),
+		viteStaticCopy({
+			targets: [
+				{
+					src: "node_modules/onnxruntime-web/dist/*.wasm",
+					dest: "onnxruntime-web/dist",
+				},
+			],
+		}),
 		VitePWA({
 			// Recommended minimal setup – customize as needed
 			registerType: "autoUpdate", // auto updates when new version available
@@ -28,6 +37,7 @@ export default defineConfig({
 			],
 			workbox: {
 				globPatterns: ["**/*.{js,css,html,ico,png,svg,webmanifest,txt,xml}"],
+				maximumFileSizeToCacheInBytes: 5000000,
 			},
 
 			// Web App Manifest – customize these!
