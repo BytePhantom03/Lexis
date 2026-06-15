@@ -1,6 +1,6 @@
 import * as ort from "onnxruntime-web";
 import { predictScoreRuleBased } from "./engagement_rules";
-import { getAIEngagementScore } from "../components/tiptap/aiService";
+import { evaluateArticleAI } from "../components/tiptap/aiService";
 
 // Set WASM paths based on Vite static copy configuration
 ort.env.wasm.wasmPaths = "/onnxruntime-web/dist/";
@@ -66,19 +66,22 @@ export async function predictScore(features, html, category) {
 
 	// Augment with AI Score for deeper relevance evaluation
 	let aiScore = 100; // Assume 100 if we don't query it
+	let aiTips = [];
 	try {
 		// Only ask AI if the text has enough content to judge relevance
 		if (features.wordCount > 15) {
-			aiScore = await getAIEngagementScore(html, category);
+			const result = await evaluateArticleAI(html, category);
+			aiScore = result.aiScore;
+			aiTips = result.aiTips;
 			if (aiScore > 0 || aiScore === 0) {
 				// Relevance Multiplier: If AI says 0 relevance, final score is 0. If AI says 50, final score is halved.
 				const finalScore = baseScore * (aiScore / 100);
-				return { score: Math.round(Math.max(0, Math.min(100, finalScore))), aiScore };
+				return { score: Math.round(Math.max(0, Math.min(100, finalScore))), aiScore, aiTips };
 			}
 		}
 	} catch (error) {
 		console.warn("AI scoring failed, using base score only", error);
 	}
 
-	return { score: Math.round(baseScore), aiScore };
+	return { score: Math.round(baseScore), aiScore, aiTips };
 }

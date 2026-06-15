@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { predictScore } from "../utils/engagementModel";
 import { extractFeatures } from "../utils/featureExtractor";
 import { generateTips } from "../utils/generateTips";
-import { getAITips } from "../components/tiptap/aiService";
 
 export function useEngagementScore(html, title, authorStats, category) {
 	const [score, setScore] = useState(0);
@@ -18,17 +17,12 @@ export function useEngagementScore(html, title, authorStats, category) {
 				// 1. Extract features
 				const features = extractFeatures(html, title, authorStats, category);
 
-				// 2. Run inference & get AI tips in parallel
-				const [prediction, aiTips] = await Promise.all([
-					predictScore(features, html, category),
-					getAITips(html, category)
-				]);
-				const { score: predictedScore, aiScore } = prediction;
-
-				// 3. Generate hybrid tips
-				const newTips = generateTips(features, aiScore, category, aiTips);
-
+				// 2. Run inference (unified AI call handles both score and tips)
+				const { score: predictedScore, aiScore, aiTips } = await predictScore(features, html, category);
 				setScore(predictedScore);
+				
+				// 3. Generate final hybrid tips immediately
+				const newTips = generateTips(features, aiScore, category, aiTips);
 				setTips(newTips);
 			} catch (error) {
 				console.error("Error predicting engagement score:", error);

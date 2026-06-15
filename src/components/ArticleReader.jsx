@@ -606,7 +606,7 @@ function ArticleReader() {
 					)}
 				<div
 					className={cn(
-						"tiptapEditor pb-12 flex flex-col overflow-x-auto flex-wrap break-normal wrap-break-word max-w-full wrap-anywhere mb-2 transition-all duration-700 ease-in-out prose dark:prose-invert",
+						"tiptapEditor pb-12 overflow-x-auto break-normal wrap-break-word max-w-full wrap-anywhere mb-2 transition-all duration-700 ease-in-out prose dark:prose-invert",
 						reading
 							? "font-serif text-xl md:text-[22px] leading-[1.8] tracking-wide text-slate-800 dark:text-[#E2E8F0] max-w-[65ch] mx-auto prose-lg"
 							: "text-lg leading-relaxed text-gray-800 dark:text-[#E0E0E0] prose-p:my-2 prose-headings:my-3 prose-ul:my-2 prose-li:my-0.5"
