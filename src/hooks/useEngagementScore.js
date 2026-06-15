@@ -3,7 +3,7 @@ import { predictScore } from "../utils/engagementModel";
 import { extractFeatures } from "../utils/featureExtractor";
 import { generateTips } from "../utils/generateTips";
 
-export function useEngagementScore(html, title, authorStats, category) {
+export function useEngagementScore(html, title, authorStats, category, pauseAiTips = false) {
 	const [score, setScore] = useState(0);
 	const [tips, setTips] = useState([]);
 	const [isLoading, setIsLoading] = useState(false);
@@ -22,7 +22,8 @@ export function useEngagementScore(html, title, authorStats, category) {
 				setScore(predictedScore);
 				
 				// 3. Generate final hybrid tips immediately
-				const newTips = generateTips(features, aiScore, category, aiTips);
+				const finalAiTips = pauseAiTips ? [] : aiTips;
+				const newTips = generateTips(features, aiScore, category, finalAiTips);
 				setTips(newTips);
 			} catch (error) {
 				console.error("Error predicting engagement score:", error);
@@ -34,5 +35,9 @@ export function useEngagementScore(html, title, authorStats, category) {
 		return () => clearTimeout(timer);
 	}, [html, title, authorStats, category]);
 
-	return { score, tips, isLoading };
+	const dismissTip = (tipToRemove) => {
+		setTips(prevTips => prevTips.filter(t => t !== tipToRemove));
+	};
+
+	return { score, tips, isLoading, dismissTip };
 }

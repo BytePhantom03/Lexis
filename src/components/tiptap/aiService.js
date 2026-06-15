@@ -204,32 +204,44 @@ export async function applyTipToText(text, tip) {
   if (!apiKey) return text;
 
   try {
-    const response = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: promptFn(text, tip) }],
-        temperature: 0.3,
-        max_tokens: 2000,
-      }),
-    });
+    let retries = 2;
+    while (retries >= 0) {
+      const response = await fetch(GROQ_API_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "llama-3.1-8b-instant",
+          messages: [{ role: "user", content: promptFn(text, tip) }],
+          temperature: 0.3,
+          max_tokens: 1500,
+        }),
+      });
 
-    if (!response.ok) throw new Error("API Error");
+      if (response.ok) {
+        const data = await response.json();
+        let content = data.choices?.[0]?.message?.content?.trim() || text;
+        
+        // Remove markdown code blocks if the AI accidentally added them
+        content = content.replace(/^```html\n?/i, "").replace(/^```\n?/i, "").replace(/\n?```$/i, "");
+        
+        return content;
+      }
 
-    const data = await response.json();
-    let content = data.choices?.[0]?.message?.content?.trim() || text;
-    
-    // Remove markdown code blocks if the AI accidentally added them
-    content = content.replace(/^```html\n?/i, "").replace(/^```\n?/i, "").replace(/\n?```$/i, "");
-    
-    return content;
+      const errText = await response.text();
+      if (response.status === 429 && retries > 0) {
+        console.warn("Rate limited on applyTip. Retrying...", errText);
+        await new Promise(r => setTimeout(r, 1500));
+        retries--;
+      } else {
+        throw new Error(`API Error: ${response.status} - ${errText}`);
+      }
+    }
   } catch (err) {
     console.error("AI apply tip failed", err);
-    return text;
+    throw err; // Let the UI handle and show the toast
   }
 }
 

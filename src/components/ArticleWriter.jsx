@@ -21,6 +21,7 @@ function ArticleWriter({ setWriter }) {
 	const [category, setCategory] = useState("Technology");
 	const [pop, setPop] = useState(false);
 	const [authorStats, setAuthorStats] = useState(null);
+	const [pauseAiTips, setPauseAiTips] = useState(false);
 
 	const [editorRef, setEditorRef] = useState(null);
 	const [isApplyingTip, setIsApplyingTip] = useState(null);
@@ -42,15 +43,17 @@ function ArticleWriter({ setWriter }) {
 	}, [user_id]);
 
 	// React Hook to compute engagement score and tips
-	const { score, tips, isLoading } = useEngagementScore(html, title, authorStats, category);
+	const { score, tips, isLoading, dismissTip } = useEngagementScore(html, title, authorStats, category, pauseAiTips);
 
-	const handleApplyTip = async (tip) => {
+	const handleApplyTip = async (tip, index) => {
 		if (!editorRef) return;
-		setIsApplyingTip(tip);
+		setIsApplyingTip(index);
 		try {
 			const newHtml = await applyTipToText(html, tip);
 			editorRef.commands.setContent(newHtml);
 			setHtml(newHtml);
+			setPauseAiTips(true); // Don't show new tips after AI rewrite
+			dismissTip(tip);
 			toast.success("Tip applied successfully!");
 		} catch (error) {
 			console.error("Failed to apply tip", error);
@@ -173,7 +176,7 @@ function ArticleWriter({ setWriter }) {
 							</div>
 
 							<div className="flex-1 overflow-y-auto relative min-h-[300px]">
-								<Tiptap setHtml={setHtml} child={""} onEditorReady={setEditorRef} />
+								<Tiptap setHtml={(newHtml) => { setHtml(newHtml); setPauseAiTips(false); }} child={""} onEditorReady={setEditorRef} />
 
 								<label className="relative w-full">
 									{!pop && (
