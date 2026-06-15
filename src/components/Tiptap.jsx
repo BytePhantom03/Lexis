@@ -7,7 +7,7 @@ import AICopilotExtension from "./tiptap/AICopilotExtension";
 import AIPalette from "./tiptap/AIPalette";
 import VoiceButton from "./tiptap/VoiceButton";
 
-const Tiptap = ({ setHtml }) => {
+const Tiptap = ({ setHtml, onEditorReady }) => {
 	// AI Copilot state
 	const [aiPaletteOpen, setAiPaletteOpen] = useState(false);
 	const [aiCoords, setAiCoords] = useState(null);
@@ -42,6 +42,12 @@ const Tiptap = ({ setHtml }) => {
 			setHtml(editor.getHTML());
 		},
 	});
+
+	useEffect(() => {
+		if (editor && onEditorReady) {
+			onEditorReady(editor);
+		}
+	}, [editor, onEditorReady]);
 
 	useEffect(() => {
 		return () => {
